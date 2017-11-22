@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         KamiHime quests auto start
 // @namespace    http://tampermonkey.net/
-// @version      15.11.2017
+// @version      22.11.2017
 // @description  Kamihime auto start quests
 // @author       Brig from discord
 // @include      https://cf.g.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
@@ -17,8 +17,8 @@
 // ==/UserScript==
 
 //Begin of info
-var questCircleTime = 300000; //ms, time between page refresh to start new quest from priority list ect. It must be more then 30 seconds
-var raidCircleTime = 20000; //ms, time between checks of raid requests when you have sufficient bp
+var questCircleTime = 600000; //ms, time between page refresh to start new quest from priority list ect. It must be more then 30 seconds
+var raidCircleTime = 30000; //ms, time between checks of raid requests when you have sufficient bp
 var minBPforCheckingRaids = 3;//if have less then minBPforCheckingRaids bp, do not check raid requests
 var consoleLog = true; //flag to log to console
 var useElixirForRagnarok = false; //flag to use half elexir to start Ragnarok
@@ -64,10 +64,16 @@ var questGuerrillaExample = {type:"guerrilla", guerrilla_quest_id:5, party:"A", 
 var questClearingWorlds = {type:"clearingWorlds"};//sequentially runs non-open quests
 var questClearDailySPQuests = {type:"clearDailyMissionSPQuests"};//do beginner SP quests for daily mission
 var questUnionRaidExample = {type:"event_union", union_raid_id:2, party:"F", summonElement:"dark", summon:"Apocalypse"};//Lilim Expert, choose 1 or 2, cannot start demon raid
+var questEventStoryExample = {type:"event_story", event_story_id:4, party:"B", summonElement:"wind", summon:"Sleipnir"};// 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate
 // questsList is list of quests by your ID to start them automatically. If 1st quest is unavalable (like sunday SP or event SP or raid used 3 times) then try 2nd ect. If cannot start 1st with lack of AP then wait.
 var questsList = [
     {nutakuID:1111111111,priorityList:[
         {type:"raid", raid_id:9, summonElement:"thunder", summon:"Anzu"},
+        {type:"raid", raid_id:7, summonElement:"thunder", summon:"Anzu"},
+        {type:"raid", raid_id:1, summonElement:"thunder", summon:"Anzu"},
+        {type:"raid", raid_id:3, summonElement:"thunder", summon:"Anzu"},
+        {type:"raid", raid_id:5, summonElement:"thunder", summon:"Anzu"},
+        {type:"raid", raid_id:11, summonElement:"thunder", summon:"Anzu"},
 //		{type:"daily", daily_quest_id:3, summonElement:"thunder", summon:"Anzu"},
 //        {type:"clearDailyMissionSPQuests", party:"C", summonElement:"light", summon:"Hecatonchires"},
 //		{type:"event_raid", event_raid_id:5, party:"C", summonElement:"light", summon:"Hecatonchires"},
@@ -103,7 +109,8 @@ var questsList = [
 //        {type:"event_quest", event_quest_id:4, party:"B", summonElement:"wind", summon:"Quetzalcoatl"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
 //        {type:"event_quest", event_quest_id:9, party:"D", summonElement:"water", summon:"Jormungandr"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok, 6 - beginner (for joined events), ect
 //        {type:"event_quest", event_quest_id:5, party:"F", summonElement:"dark", summon:"Dullahan"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
-        {type:"event_quest", event_quest_id:4, party:"F", summonElement:"dark", summon:"Dullahan"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
+//        {type:"event_quest", event_quest_id:4, party:"B", summonElement:"wind", summon:"Sleipnir"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
+		{type:"event_story", event_story_id:4, party:"B", summonElement:"wind", summon:"Sleipnir"}, //for collab event ect. 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate
 //		{type:"event_union", union_raid_id:2, party:"E", summonElement:"fire", summon:"Fafnir"},//Lilim Expert, choose 1 or 2, cannot start demon raid
 //		{type:"event_union", union_raid_id:2, party:"D", summonElement:"water", summon:"Jormungandr"},//Lilim Expert, choose 1 or 2, cannot start demon raid
     ]},
@@ -320,6 +327,20 @@ function checkPriorityList(){
                         checkPriorityList();
                     }
                     break;
+                case "event_story":
+                    if (has(quest,"event_story_id")){
+                        currentQuestType = "event";
+                        currentEventQuestID = quest.event_story_id;
+                        if (has(quest,"party")){currentParty = quest.party;}else{currentParty="";}
+						if (has(quest,"summonElement")){currentSummonElement = quest.summonElement;}else{currentSummonElement = "";}
+                        if (has(quest,"summon")){currentSummon = quest.summon;}else{currentSummon = "";}
+                        if (consoleLog) {console.log('trying to start event story quest: ' + currentEventQuestID + ', with party: ' + currentParty + ', summon: ' + currentSummon);}
+						kh.createInstance("apiABanners").getMypageBanners().then(function(e) {info.banners = e.body;startEventStory();}.bind(this));
+                    } else {
+                        if (consoleLog) {console.log('do not have event_story_id for event story quest');}
+                        checkPriorityList();
+                    }
+                    break;
                 case "event_raid":
                     if (has(quest,"event_raid_id")){
                         currentQuestType = "event_raid";
@@ -425,6 +446,17 @@ function findNewQuest(){
         currentEpisode = -1;
         kh.createInstance("apiAAreas").getMainQuestsInCurrentArea().then(function(e) {info.main = e.body;prepareMainQuest(currentQuestID);}.bind(this));
     }
+}
+
+function startEventStory(){
+	var storyEvent = info.banners.data.filter(function ( obj ) {   return obj.event_type === "quest_story_event";})[0];
+	if (has(storyEvent)){
+		var event_id = storyEvent.event_id;
+		kh.createInstance("apiAQuests").getListEventNotScenarioQuest(event_id).then(function(e) {info.special = e.body;startEventQuest();}.bind(this));
+	} else {
+		if (consoleLog) {console.log('there is no current story event');}
+        checkPriorityList();
+	}
 }
 
 function findEventRaid(){
