@@ -4,7 +4,7 @@
 // @version      0.1
 // @description  ignore KamiHime error on nutaku
 // @author       You
-// @include      http://pf.nutaku.info/gadgets/ifr?*.kamihimeproject.dmmgames.com*
+// @include      https://pf.nutaku.com/gadgets/ifr?*.kamihimeproject.dmmgames.com*
 // @grant        none
 // @run-at       document-end
 // ==/UserScript==
@@ -24,4 +24,3 @@ function doAuto() {
 }
 
 setTimeout(doAuto,5000);
-//setTimeout(function(){location.reload();},3600000);
