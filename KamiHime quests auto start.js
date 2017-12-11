@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         KamiHime quests auto start
 // @namespace    http://tampermonkey.net/
-// @version      22.11.2017
+// @version      11.12.2017
 // @description  Kamihime auto start quests
 // @author       Brig from discord
 // @include      https://cf.g.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
@@ -34,7 +34,7 @@ var eventRaidIDs = [{1:"blue standard"},{2:"expert"},{3:"Ragnarok"}];
 //for union_raid_id:
 var unionRaidIDs = [{1:"lilum standard"},{2:"lilum expert"},{3:"demon expert"},{4:"demon ultimate"}];
 //for sunday SP
-var guerrillaIDs = [{1:"weapon beginner"},{2:"eidolon beginner"},{3:"weapon standard"},{4:"eidolon standard"},{5:"weapon expert"},{6:"eidolon expert"}];
+var guerrillaIDs = [{1:"gem standard"},{2:"gem expert"},{3:"weapon standard"},{4:"weapon expert"},{5:"eidolon standard"},{6:"eidolon expert"}];
 //for daily
 var dailyIDs = [{1:"beginner"},{2:"standard"},{3:"expert"}];
 //world IDs for main and free quests are from 1 for first world ect.
@@ -60,7 +60,7 @@ var questFreeExample = {type:"free", world:1, free_quest_id:8, summonElement:"th
 var questDailyExample = {type:"daily", daily_quest_id:1, party:"A", summonElement:"thunder", summon:"Anzu"};//beginner daily quest
 var questEventQuestExample = {type:"event_quest", event_quest_id:4, party:"E", summonElement:"fire", summon:"Fafnir"};//ultimate event quest
 var questEventRaidExample = {type:"event_raid", event_raid_id:3, party:"C", summonElement:"thunder", summon:"Anzu"};//blue expert
-var questGuerrillaExample = {type:"guerrilla", guerrilla_quest_id:5, party:"A", summonElement:"thunder", summon:"Anzu"};//weapon expert quest
+var questGuerrillaExample = {type:"guerrilla", guerrilla_quest_id:4, party:"A", summonElement:"thunder", summon:"Anzu"};//weapon expert quest
 var questClearingWorlds = {type:"clearingWorlds"};//sequentially runs non-open quests
 var questClearDailySPQuests = {type:"clearDailyMissionSPQuests"};//do beginner SP quests for daily mission
 var questUnionRaidExample = {type:"event_union", union_raid_id:2, party:"F", summonElement:"dark", summon:"Apocalypse"};//Lilim Expert, choose 1 or 2, cannot start demon raid
@@ -84,8 +84,8 @@ var questsList = [
 //        {type:"event_quest", event_quest_id:9, party:"A", summonElement:"thunder", summon:"Yggdrasil"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
     ]},
     {nutakuID:2222222222,priorityList:[
-//        questGuerrillaExample,
-        {type:"clearDailyMissionSPQuests", summonElement:"thunder", summon:"Anzu"},
+//        {type:"guerrilla", guerrilla_quest_id:2, party:"B", summonElement:"wind", summon:"Sleipnir"},
+//        {type:"clearDailyMissionSPQuests", summonElement:"thunder", summon:"Anzu"},
 //        {type:"raid", raid_id:9, summonElement:"thunder", summon:"Anzu"},
 //        {type:"raid", raid_id:7, summonElement:"thunder", summon:"Anzu"},
 //        {type:"raid", raid_id:1, summonElement:"thunder", summon:"Anzu"},
@@ -104,15 +104,17 @@ var questsList = [
 //		{type:"event_raid", event_raid_id:3, party:"A", summonElement:"light", summon:"Hecatonchires"},
 //		{type:"event_raid", event_raid_id:2, party:"A", summonElement:"light", summon:"Hecatonchires"},
 //		{type:"event_raid", event_raid_id:1, party:"A", summonElement:"light", summon:"Hecatonchires"},
-//        {type:"event_quest", event_quest_id:5, party:"C", summonElement:"thunder", summon:"Yggdrasil"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
+//        {type:"event_quest", event_quest_id:4, party:"C", summonElement:"thunder", summon:"Yggdrasil"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
 //        {type:"event_quest", event_quest_id:5, party:"B", summonElement:"wind", summon:"Behemoth"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
 //        {type:"event_quest", event_quest_id:4, party:"B", summonElement:"wind", summon:"Quetzalcoatl"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
 //        {type:"event_quest", event_quest_id:9, party:"D", summonElement:"water", summon:"Jormungandr"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok, 6 - beginner (for joined events), ect
 //        {type:"event_quest", event_quest_id:5, party:"F", summonElement:"dark", summon:"Dullahan"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
 //        {type:"event_quest", event_quest_id:4, party:"B", summonElement:"wind", summon:"Sleipnir"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
-		{type:"event_story", event_story_id:4, party:"B", summonElement:"wind", summon:"Sleipnir"}, //for collab event ect. 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate
+//		{type:"event_story", event_story_id:4, party:"B", summonElement:"wind", summon:"Sleipnir"}, //for collab event ect. 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate
+		{type:"event_story", event_story_id:4, party:"C", summonElement:"thunder", summon:"Yggdrasil"}, //for new events 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
 //		{type:"event_union", union_raid_id:2, party:"E", summonElement:"fire", summon:"Fafnir"},//Lilim Expert, choose 1 or 2, cannot start demon raid
 //		{type:"event_union", union_raid_id:2, party:"D", summonElement:"water", summon:"Jormungandr"},//Lilim Expert, choose 1 or 2, cannot start demon raid
+//		{type:"event_union", union_raid_id:2, party:"A", summonElement:"light", summon:"Hecatonchires"},
     ]},
 ];
 //filter to join raids
