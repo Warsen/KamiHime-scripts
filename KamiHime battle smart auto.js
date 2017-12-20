@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         KamiHime battle smart auto
 // @namespace    http://tampermonkey.net/
-// @version      11.12.2017
+// @version      20.12.2017
 // @description  full auto in battle in Kamihime game
 // @author       You
 // @include      https://cf.g.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/battle/app.html*
@@ -12,7 +12,7 @@
 
 var autoBattle = true; //set to false to end turns manually
 var callForHelp = true; // call for help during your raids
-var useBurstAbilitesOnNormalGauge = false; //use (true) or not (false) burst and attack abilities during normal gauge on bosses
+var useBurstAbilitesOnNormalGauge = true; //use (true) or not (false) burst and attack abilities during normal gauge on bosses
 
 var turnNumber;
 var battleWorld;
@@ -464,7 +464,7 @@ function hasStatus(abilityID){
 }
 
 function enemyIsBuffed(){
-	var abilityID=[5,6,7,9,13,14,15,19,21,23,24,27,84];
+	var abilityID=[5,6,7,9,13,14,15,19,21,23,24,27,78,84];
 	var target = battleWorld.getTarget();
     if (has(battleWorld,"battleStatus","_enemies", target, "status_effects")){
 		var charStats = battleWorld.battleStatus._enemies[target].status_effects;
@@ -716,6 +716,7 @@ battleStatusesByID = [
 {60: "Blinded, Accuracy↓"},
 {61: "Dizzy, Chance of losing attack turn"},
 {62: "Paralysed, Unable to attack"},
+{65: "Abilities Unusable"},
 {67: "Time until Stun Mode removed↑"},
 {68: "Total damage until Stun Mode removed increased"},
 {69: "HP depleted at end of turn"},
