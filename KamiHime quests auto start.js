@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         KamiHime quests auto start
 // @namespace    http://tampermonkey.net/
-// @version      20.12.2017
+// @version      01.01.2018
 // @description  Kamihime auto start quests
 // @author       Brig from discord
 // @include      https://cf.g.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
@@ -30,7 +30,7 @@ var raidIDs = [{1:"fire20AP"},{2:"fire30AP"},{3:"water20AP"},{4:"water30AP"},{5:
 //for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Expert Silver, 5 - Expert Gold, 6 - Ultimate
 var eventQuestIDs = [{1:"beginner"},{2:"Standard"},{3:"Expert"},{4:"Ultimate"},{5:"Ragnarok"}];
 //for event_raid_id:
-var eventRaidIDs = [{1:"standard"},{3:"expert"},{4:"Ragnarok"}];
+var eventRaidIDs = [{1:"standard"},{2:"expert"},{3:"Ragnarok"}];
 //for union_raid_id:
 var unionRaidIDs = [{1:"lilum standard"},{2:"lilum expert"},{3:"demon expert"},{4:"demon ultimate"}];
 //for sunday SP
@@ -61,7 +61,7 @@ var questMainExample = {type:"main", world:2, main_quest_id:6, episode:2, party:
 var questFreeExample = {type:"free", world:1, free_quest_id:8, summonElement:"thunder", summon:"Anzu"};//free quest from 1st world number 8 from low
 var questDailyExample = {type:"daily", daily_quest_id:1, party:"A", summonElement:"thunder", summon:"Anzu"};//beginner daily quest
 var questEventQuestExample = {type:"event_quest", event_quest_id:4, party:"E", summonElement:"fire", summon:"Fafnir"};//ultimate event quest
-var questEventRaidExample = {type:"event_raid", event_raid_id:3, party:"C", summonElement:"thunder", summon:"Anzu"};//blue expert
+var questEventRaidExample = {type:"event_raid", event_raid_id:2, party:"C", summonElement:"thunder", summon:"Anzu"};//blue expert
 var questGuerrillaExample = {type:"guerrilla", guerrilla_quest_id:4, party:"A", summonElement:"thunder", summon:"Anzu"};//weapon expert quest
 var questClearingWorlds = {type:"clearingWorlds"};//sequentially runs non-open quests
 var questClearDailySPQuests = {type:"clearDailyMissionSPQuests"};//do beginner SP quests for daily mission
@@ -104,9 +104,9 @@ var questsList = [
 //        {type:"raid", raid_id:12, summonElement:"thunder", summon:"Anzu"},
 //		{type:"daily", daily_quest_id:3, summonElement:"thunder", summon:"Anzu"},
 //		{type:"main", world:5, main_quest_id:25, episode:3, summonElement:"thunder", summon:"Anzu"},
-		{type:"event_raid", event_raid_id:4, party:"F", summonElement:"dark", summon:"Dullahan"},//ragnarok
-		{type:"event_raid", event_raid_id:3, party:"F", summonElement:"dark", summon:"Dullahan"},//expert
-		{type:"event_raid", event_raid_id:1, party:"F", summonElement:"dark", summon:"Dullahan"},//standart
+		{type:"event_raid", event_raid_id:3, party:"C", summonElement:"thunder", summon:"Yggdrasil"},//ragnarok
+		{type:"event_raid", event_raid_id:2, party:"C", summonElement:"thunder", summon:"Yggdrasil"},//expert
+		{type:"event_raid", event_raid_id:1, party:"C", summonElement:"thunder", summon:"Yggdrasil"},//standart
 //        {type:"event_quest", event_quest_id:4, party:"C", summonElement:"thunder", summon:"Yggdrasil"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
 //        {type:"event_quest", event_quest_id:5, party:"B", summonElement:"wind", summon:"Behemoth"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
 //        {type:"event_quest", event_quest_id:4, party:"B", summonElement:"wind", summon:"Quetzalcoatl"},//for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
@@ -134,16 +134,16 @@ var raidsFilterList = [
 			   {from_bp:2} //check ragnarok raid from "from_bp" bp and use energy seed if needed to start it
 	 ]},
     {nutakuID:2222222222, //summonElement:"thunder",summon:"Anzu",
-     party:"D",summonElement:"water", summon:"Jormungandr",
+	 party:"C",summonElement:"thunder", summon:"Yggdrasil",
 	 raidsFilter:[{participants:0}, //join raids with 1 and less participants and
 //				  {battle_bp:10} //join raids with n bp. if not actual bp then will not join them
 //				  {raid_id:[1,3,5,7,9,11]} //join raids. look at list of raids IDs
 				 ],
 	 eventRaidsFilter:[{participants:1},//join event raids with n and less participants and
-					   {event_raid_id:[3]},//join event raids. look at list of event raids IDs, left 3 or 4 if you want specific tickets.
+					   {event_raid_id:[2]},//join event raids. look at list of event raids IDs, left 3 or 4 if you want specific tickets.
 					  ],
 	 ragnarok:[{participants:3},//join ragnarok raid with n and less participants and
-			   {from_bp:0}, //check ragnarok raid from "from_bp" bp and use energy seed if needed to start it
+			   {from_bp:1}, //check ragnarok raid from "from_bp" bp and use energy seed if needed to start it
 //               {has_union_member:true}//join only union member raids
 	 ],
 	 unionLilumRaidsFilter:[{participants:1},//join union lilum raids with n and less participants and
@@ -578,7 +578,7 @@ function startRaidEvent(){
             startQuest();
         } else {
             if (consoleLog) {console.log('has not AP for event quest with ID: ' + currentEventRaidID);}
-			if (currentEventRaidID===4 && useElixirForRagnarok){//if ragnarok and flag
+			if (currentEventRaidID===3 && useElixirForRagnarok){//if ragnarok and flag
 				useElixir();
 				return;
 			}
@@ -895,7 +895,7 @@ function checkRequests1(eventRaidID,unionRaidID){//apply raid filters to list of
 		if (consoleLog) {console.log('checking ragnarok');}
 		for (i=0;i<info.raidRequestList.data.length;i++){
 			raidData = info.raidRequestList.data[i];
-			if (raidData.quest_id!==(eventRaidID+4)) {continue;}//raid id not ragnarok
+			if (raidData.quest_id!==(eventRaidID+3)) {continue;}//raid id not ragnarok
 			if (has(ragnarokParticipantsFilter,"participants") && ragnarokParticipantsFilter.participants<raidData.participants) {continue;}// has too many participants
 			if (has(ragnarokHasUnionMember,"has_union_member") && ragnarokHasUnionMember.has_union_member && !raidData.has_union_member) {continue;}// do not have union member
 			if (consoleLog) {console.log('there is ragnarok raid');}
@@ -1022,16 +1022,11 @@ function raidStage(){
 
 function checkDailyMissions(){
     var missionSPQuests = info.daily_missions.missions.filter(function ( obj ) {  return obj.title == "Clear a Daily Quest";})[0];
-    if (has(missionSPQuests,"now_progress")){
-        if (missionSPQuests.now_progress<1){
+    if (has(missionSPQuests,"now_progress") && has(missionSPQuests,"max_progress") && missionSPQuests.now_progress<missionSPQuests.max_progress){
             currentQuestType = "daily";
             currentQuest = 1;
             if (consoleLog) {console.log('trying to start daily quest: ' + currentQuest + ', with party: ' + currentParty + ', summon: ' + currentSummon);}
             kh.createInstance("apiAQuests").getListSpecialQuest().then(function(e) {info.special = e.body;startDaily();}.bind(this));
-        } else {
-            if (consoleLog) {console.log('mission daily SP quests done');}
-            checkPriorityList();
-        }
     } else {
         if (consoleLog) {console.log('mission daily SP quests done');}
         checkPriorityList();
