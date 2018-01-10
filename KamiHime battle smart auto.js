@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         KamiHime battle smart auto
 // @namespace    http://tampermonkey.net/
-// @version      20.12.2017
+// @version      10.01.2018
 // @description  full auto in battle in Kamihime game
 // @author       You
 // @include      https://cf.g.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/battle/app.html*
@@ -13,6 +13,8 @@
 var autoBattle = true; //set to false to end turns manually
 var callForHelp = true; // call for help during your raids
 var useBurstAbilitesOnNormalGauge = true; //use (true) or not (false) burst and attack abilities during normal gauge on bosses
+//New!
+var strongEnemyHP = 300000;//HP for Enemy. Script will use all debuffs and damage skills if enemy has more HP than this.
 
 var turnNumber;
 var battleWorld;
@@ -306,20 +308,22 @@ function doSummon(){
 }
 
 function checkAbilityNeeded(color,type,name,char){
-	var abilitiesNotNeededByName = ["King of Flies","Misty MoonLight","Mega Therion","Zombie Powder"];
+	var abilitiesNotNeededByName = ["King of Flies","Misty MoonLight","Mega Therion","Zombie Powder","Charis Ring"];
     var abilitiesNotNeeded = [55,16];//55 - rampaging, 16 - buff with debuff
 	var abilitiesAlwaysUse = [1,41,17];//41 - Burst Gauge↑ self, 17 - Burst Gauge↑ All, 1 - Refills Burst Gauge
+	var abilitiesStackableByName = ["Golden Age","Fury","Meginjord","Sun Spread","Raizu and Fight","Crimson Fury","Crimson Eruption","Nymph's Dance","Adverse Wind","Book of Raziel"];
 	var abilitiesForBossByName = ["Outrage","Vicissitudes of Fortune","Lovesick","Lovely Concert","Hero's Sword",
 								  "Mental Abberation","Chaos Inferno","Deep Attraction","Aqua Drowning","Death Swords","Soul Reaper",
 								  "Wind of Lovesickness","Immolation","Blackout","Love Perfume","Evil Eye's Curse","Black Shroud","Putrify",
-								 "Chaotic Fog","Walpurgis Night","Cursed Undead","Enchanting Harp","To Catch a Thief","Berserker"];//always use if enemy with gauge else do not use
-	var abilitiesDebuffEnemy = [25,53,49,45,44,34,43];//25 - DEF↓, 53 - ATK↓, 49 - ATK↓, 45 - Dizziness to an enemy, 34 - Chain attack rate↓, 43 - Enemy's max Overdrive Meter↑
-	var abilitiesEnemyBuffedByName = ["Alfrodull"];
+								 "Chaotic Fog","Walpurgis Night","Cursed Undead","Enchanting Harp","To Catch a Thief","Berserker","Icicle Prison",
+								 "Striking Thunder Blast","Blitz Donner","Moonbeam Arrow","Mutsuru Sakuya","Admiration of Wei"];//always use if enemy with gauge else do not use
+	var abilitiesDebuffEnemy = [25,53,49,45,44,34,43,50];//25 - DEF↓, 53 - ATK↓, 49 - ATK↓, 45 - Dizziness to an enemy, 34 - Chain attack rate↓, 43 - Enemy's max Overdrive Meter↑
+	var abilitiesEnemyBuffedByName = ["Alfrodull","Sugary Crush"];
     var abilitiesEnemyBuffed = [56];
-    var abilitiesDuringStunByName = ["Finish Impact","Current of Despair","Dragon Blood","Dragon Buster","Epic of a Military Hero"];
+    var abilitiesDuringStunByName = ["Finish Impact","Current of Despair","Dragon Blood","Dragon Buster","Epic of a Military Hero","Paralyzer","Curse","Enuma Elis","Plasma Bind"];
     var abilitiesDuringStun = [39];//39 - Extends stun on enemy
-    var abilitiesDuringRageByName = ["Hydro Burst","Land of Ire"];
-    var abilitiesDuringRage = [46,35];//46 - enemy's Mode Gauge↓, 35 - x DMG to raging enemies
+    var abilitiesDuringRageByName = ["Hydro Burst","Land of Ire","Quell Riot"];
+    var abilitiesDuringRage = [46,35,57];//46 - enemy's Mode Gauge↓, 35 - x DMG to raging enemies, 57 - Mode Gauge reduction
     var abilitiesReduceActiveDotByName = ["Otherworldy Call"];
     var abilitiesReduceActiveDot = [54];
     var abilitiesDefenceType1 = [3];
@@ -346,6 +350,7 @@ function checkAbilityNeeded(color,type,name,char){
 	if (abilityNameInList(name,abilitiesNotNeededByName))        return false;
 	if (abilitiesNotNeeded.indexOf(type)>-1)                     return false;
 	if (abilitiesAlwaysUse.indexOf(type)>-1)                     return true;
+	if (abilityNameInList(name,abilitiesStackableByName))        return true;
 
 	if (abilityNameInList(name,abilitiesHealAndRecoverByName))   return needRecover() || needHeal();
  	if (abilitiesHealSelf.indexOf(type)>-1)                      return needHeal(char);
@@ -353,18 +358,18 @@ function checkAbilityNeeded(color,type,name,char){
 		abilitiesRevive.indexOf(type)===-1)                      return needHeal();
     if (abilitiesRecover.indexOf(type)>-1)                       return needRecover();
 
-	if (abilityNameInList(name,abilitiesReduceActiveDotByName))  return enemyHasGauge() && enemyHasActiveDot();
-	if (abilityNameInList(name,abilitiesForBossByName))          return enemyHasGauge();
+	if (abilityNameInList(name,abilitiesReduceActiveDotByName))  return (enemyHasGauge() || enemyIsStrong()) && enemyHasActiveDot();
+	if (abilityNameInList(name,abilitiesForBossByName))          return enemyHasGauge() || enemyIsStrong();
 	if (abilityNameInList(name,abilitiesEnemyBuffedByName))      return enemyIsBuffed();
-	if (abilityNameInList(name,abilitiesDuringRageByName))       return enemyRaged();
-	if (abilityNameInList(name,abilitiesDuringStunByName))       return enemyStunned();
+	if (abilityNameInList(name,abilitiesDuringRageByName))       return enemyRaged() || (color==="red" && enemyIsStrong());
+	if (abilityNameInList(name,abilitiesDuringStunByName))       return enemyStunned() || (color==="red" && enemyIsStrong());
 
-	if (abilitiesDebuffEnemy.indexOf(type)>-1)                   return enemyHasGauge();
-    if (abilitiesDuringStun.indexOf(type)>-1)                    return enemyStunned();
-    if (abilitiesDuringRage.indexOf(type)>-1)                    return enemyRaged();
+	if (abilitiesDebuffEnemy.indexOf(type)>-1)                   return enemyHasGauge() || enemyIsStrong();
+    if (abilitiesDuringStun.indexOf(type)>-1)                    return enemyStunned() || (color==="red" && enemyIsStrong());
+    if (abilitiesDuringRage.indexOf(type)>-1)                    return enemyRaged() || (color==="red" && enemyIsStrong());
     if (abilitiesEnemyBuffed.indexOf(type)>-1)                   return enemyIsBuffed();
-    if (abilitiesReduceActiveDot.indexOf(type)>-1)               return enemyHasGauge() && enemyHasActiveDot();
-    if (abilitiesOnEnemySpecialAttack.indexOf(type)>-1)          return enemyHasGauge() && !enemyStunned() && enemyHasMaxActiveDots();
+    if (abilitiesReduceActiveDot.indexOf(type)>-1)               return (enemyHasGauge() || enemyIsStrong()) && enemyHasActiveDot();
+    if (abilitiesOnEnemySpecialAttack.indexOf(type)>-1)          return ((enemyHasGauge() && !enemyStunned()) || enemyIsStrong()) && enemyHasMaxActiveDots();
 	if (abilitiesAttackType1.indexOf(type)>-1)                   return hasStatus(6);
     if (abilitiesAttackType2.indexOf(type)>-1)                   return hasStatus(7);
     if (abilitiesAttackType3.indexOf(type)>-1)                   return hasStatus(40001);
@@ -423,6 +428,16 @@ function enemyHasActiveDot(){
     var target = battleWorld.getTarget();
     if (has(battleWorld,"enemyStatusBarList",target,"_chargeTurnDotsActiveCount")){
         if (battleWorld.enemyStatusBarList[target]._chargeTurnDotsActiveCount > 0){
+            return true;
+        }
+    }
+    return false;
+}
+
+function enemyIsStrong(){
+    var target = battleWorld.getTarget();
+    if (has(battleWorld,"enemyList",target,"hp")){
+        if (battleWorld.enemyList[target].hp >= strongEnemyHP){
             return true;
         }
     }
