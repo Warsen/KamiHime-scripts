@@ -320,7 +320,7 @@ function checkAbilityNeeded(color,type,name,char){
 	var abilitiesDebuffEnemy = [25,53,49,45,44,34,43,50];//25 - DEF↓, 53 - ATK↓, 49 - ATK↓, 45 - Dizziness to an enemy, 34 - Chain attack rate↓, 43 - Enemy's max Overdrive Meter↑
 	var abilitiesEnemyBuffedByName = ["Alfrodull","Sugary Crush"];
     var abilitiesEnemyBuffed = [56];
-    var abilitiesDuringStunByName = ["Finish Impact","Current of Despair","Dragon Blood","Dragon Buster","Epic of a Military Hero","Paralyzer","Curse","Enuma Elis","Plasma Bind"];
+    var abilitiesDuringStunByName = ["Finish Impact","Current of Despair","Dragon Blood","Dragon Buster","Epic of a Military Hero","Paralyzer","Curse+","Enuma Elis","Plasma Bind"];
     var abilitiesDuringStun = [39];//39 - Extends stun on enemy
     var abilitiesDuringRageByName = ["Hydro Burst","Land of Ire","Quell Riot"];
     var abilitiesDuringRage = [46,35,57];//46 - enemy's Mode Gauge↓, 35 - x DMG to raging enemies, 57 - Mode Gauge reduction
