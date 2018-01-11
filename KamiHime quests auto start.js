@@ -822,7 +822,7 @@ function checkRequests(eventRaidID,unionRaidID){//prepare data for raid requests
 	if (eventRaidID===undefined) {
 		if (!has(info,"banners")){
 			kh.createInstance("apiABanners").getMypageBanners().then(function(e) {info.banners = e.body;checkRequests();}.bind(this));
-		} else if (!has(info,"event_raids") && !has(info,"union_raids")){
+		} else if (!has(info,"event_raids") && !has(info,"union_demon_ultimates")){
 //			var raidEvent = info.banners.data.filter(function ( obj ) {  return obj.event_type === "raid_event";})[0];
 			var raidEvent = info.banners.data.filter(function ( obj ) {  return obj.navigate_page === "raidevent/ra_001";})[0];
 			var unionEvent = info.banners.data.filter(function ( obj ) {  return obj.event_type === "union_raid_event";})[0];
