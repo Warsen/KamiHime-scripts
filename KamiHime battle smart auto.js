@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         KamiHime battle smart auto
 // @namespace    http://tampermonkey.net/
-// @version      10.01.2018
+// @version      11.01.2018
 // @description  full auto in battle in Kamihime game
 // @author       You
 // @include      https://cf.g.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/battle/app.html*
@@ -525,7 +525,7 @@ function needHeal(char){
 }
 
 function needRecover(){//has bad affinity like poison ect.
-	var badStatuses = [54,55,56,57,58,59,60,61,62,63,64,65,69,89,134];
+	var badStatuses = [10,11,12,16,17,18,22,25,26,54,55,56,57,58,59,60,61,62,63,64,65,69,89,134];
     if (has(battleWorld, "characterPanelList")){
         var charStats = battleWorld.characterPanelList;
         var len = charStats.length;
@@ -711,6 +711,8 @@ battleStatusesByID = [
 {22: "Affliction RST↓"},
 {23: "Double Attack rate↑"},
 {24: "Triple Attack rate↑"},
+{25: "Double Attack rate↓"},
+{26: "Triple Attack rate↓"},
 {27: "Next normal attack guaranteed to be Double Attack"},
 {35: "HP recovered every turn"},
 {36: "ATK↑ vs stuned"},
@@ -746,6 +748,7 @@ battleStatusesByID = [
 {87: "Lucky, Enemy attacks miss"},
 {100: "ATK↓, slot X, Stackable"},
 {101: "Fire ATK↑"},
+{103: "Wind ATK↑"},
 {116: "Thunder RST↑"},
 {134: "Covers in snow, freezing movements"},
 {40001: "Summon, ATK↑"},
