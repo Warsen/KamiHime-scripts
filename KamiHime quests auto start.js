@@ -958,17 +958,21 @@ function checkRequests1(eventRaidID,unionRaidID){//apply raid filters to list of
 		if (unionDemonRaidIdFilter !== "undefined" && unionRaidID > 0 ){
 			if (unionDemonRaidIdFilter.union_raid_id.indexOf(4)>-1){
 				raidData = info.union_demon_ultimates.data.filter(obj => {return (obj.participants <= unionDemonParticipantsFilter.participants && !obj.is_joined && obj.battle_bp<= info.questPoints.bp);})
-					.sort((a,b) => (a.a_battle_id > b.a_battle_id)).sort((a,b) => (a.participants > b.participants))[0]
-				joinRaidData(raidData);
-				joinRaid();
-				return;
+					.sort((a,b) => (a.a_battle_id > b.a_battle_id)).sort((a,b) => (a.participants > b.participants))[0];
+				if (has(raidData,"a_battle_id")) {
+					joinRaidData(raidData);
+					joinRaid();
+					return;
+				} else if (consoleLog) {console.log('no suitable ultimates');}
 			}
 			if (unionDemonRaidIdFilter.union_raid_id.indexOf(3)>-1){
 				raidData = info.union_demon_ultimates.data.filter(obj => {return (obj.participants <= unionDemonParticipantsFilter.participants && !obj.is_joined && obj.battle_bp<= info.questPoints.bp);})
-					.sort((a,b) => (a.a_battle_id > b.a_battle_id)).sort((a,b) => (a.participants > b.participants))[0]
-				joinRaidData(raidData);
-				joinRaid();
-				return;
+					.sort((a,b) => (a.a_battle_id > b.a_battle_id)).sort((a,b) => (a.participants > b.participants))[0];
+				if (has(raidData,"a_battle_id")) {
+					joinRaidData(raidData);
+					joinRaid();
+					return;
+				} else if (consoleLog) {console.log('no suitable experts');}
 			}
 		}
 	}
