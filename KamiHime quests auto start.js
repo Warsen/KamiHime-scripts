@@ -822,20 +822,13 @@ function checkRequests(eventRaidID,unionRaidID){//prepare data for raid requests
 	if (eventRaidID===undefined) {
 		if (!has(info,"banners")){
 			kh.createInstance("apiABanners").getMypageBanners().then(function(e) {info.banners = e.body;checkRequests();}.bind(this));
-		} else if (!has(info,"event_raids") && !has(info,"union_demon_ultimates")){
-//			var raidEvent = info.banners.data.filter(function ( obj ) {  return obj.event_type === "raid_event";})[0];
+		} else if (!has(info,"event_raids") && !has(info,"union_raids")){
 			var raidEvent = info.banners.data.filter(function ( obj ) {  return obj.navigate_page === "raidevent/ra_001";})[0];
 			var unionEvent = info.banners.data.filter(function ( obj ) {  return obj.event_type === "union_raid_event";})[0];
 			if (has(raidEvent)){
 				kh.createInstance("apiAQuests").getListEventQuest(raidEvent.event_id).then(function(e) {info.event_raids = e.body;checkRequests();}.bind(this));
 			} else if (has(unionEvent)){
-				kh.createInstance("apiAQuests").getListEventQuest(unionEvent.event_id).then(function(e) {info.union_raids = e.body;
-					kh.createInstance("apiABattles").getUnionRaidRequestList(unionEvent.event_id,"Ultimate").then(function(e) {info.union_demon_ultimates = e.body;
-						kh.createInstance("apiABattles").getUnionRaidRequestList(unionEvent.event_id,"Expert").then(function(e) {info.union_demon_experts = e.body;
-							checkRequests();
-						}.bind(this));
-					}.bind(this));
-				}.bind(this));
+				kh.createInstance("apiAQuests").getListEventQuest(unionEvent.event_id).then(function(e) {info.union_raids = e.body;checkRequests();}.bind(this));
 			} else {
 				checkRequests(0,0);
 			}
@@ -850,8 +843,15 @@ function checkRequests(eventRaidID,unionRaidID){//prepare data for raid requests
 		} else if (has(info,"union_raids")){
 			var questID;
 			var firstUnionQuest = info.union_raids.data.filter(function ( obj ) {  return obj.type === "event_union_lilim_raid";})[0];
+			var unionEvent = info.banners.data.filter(function ( obj ) {  return obj.event_type === "union_raid_event";})[0];
 			if (has(firstUnionQuest)){
-				kh.createInstance("apiAItems").getCure(1, 10).then(function(e) {info.cure_items = e.body;checkRequests(0,firstUnionQuest.quest_id);}.bind(this));
+				kh.createInstance("apiAItems").getCure(1, 10).then(function(e) {info.cure_items = e.body;
+                    kh.createInstance("apiABattles").getUnionRaidRequestList(unionEvent.event_id,"Ultimate").then(function(e) {info.union_demon_ultimates = e.body;
+                         kh.createInstance("apiABattles").getUnionRaidRequestList(unionEvent.event_id,"Expert").then(function(e) {info.union_demon_experts = e.body;
+                              checkRequests(0,firstUnionQuest.quest_id);
+                         }.bind(this));
+					}.bind(this));
+				}.bind(this));
 			}else {
 				checkRequests(0,0);
 			}
