@@ -2,8 +2,16 @@
 Content scripts for browser game KamiHime Project.
 
 Use Tampermonkey for Chrome or Greasemonkey for Firefox (not tested).
+Initially created for personal use. Change parameters in "KamiHime quests auto start" script if you want and use them.
 
-Initially created for personal use. Change parameters in "KamiHime quests auto start" script if you want and use them at your own risk to get a ban on nutaku
+Please keep in mind:
+
+Scripts were created with intention to automate tedious and time consuming actions of player by emulating this actions. 
+Script can and do only what player can. I especially was cautios to not burden game server with frequent requests.
+Please follow these rules if you want to modify my scripts.
+
+Please be noted that you will violate Nutaku rules by using scripts. But they cannot distinguish between actions of a player or the scripts.
+In my view uses of scripts are justified as they can keep interest in game but save time for rest of life.
 
 Description of scripts:
 
