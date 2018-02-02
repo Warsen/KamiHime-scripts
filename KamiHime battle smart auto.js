@@ -479,7 +479,7 @@ function hasStatus(abilityID){
 }
 
 function enemyIsBuffed(){
-	var abilityID=[5,6,7,9,13,14,15,19,21,23,24,27,78,84];
+	var abilityID=[5,6,7,9,13,14,15,19,21,23,24,27,78,84,40003,40001,40005];
 	var target = battleWorld.getTarget();
     if (has(battleWorld,"battleStatus","_enemies", target, "status_effects")){
 		var charStats = battleWorld.battleStatus._enemies[target].status_effects;
