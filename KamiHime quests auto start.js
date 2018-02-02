@@ -1017,7 +1017,10 @@ function joinRaid(){//using global variables currentRaidID, currentQuestType, cu
 		if (currentSummonElement !== undefined){
 			summonElement = elements.indexOf(currentSummonElement);
 		}
-        kh.createInstance("apiASummons").getSupporters(summonElement).then(function(e) {info.supporters = e.body;getSummonID();}.bind(this));
+		if (summonElement === 6) { // if not base element then we must find from another source
+			summonElement = info.decks.filter( obj => obj.a_party_id===currentPartyID )[0].job.element_type;
+		}
+	    kh.createInstance("apiASummons").getSupporters(summonElement).then(function(e) {info.supporters = e.body;getSummonID();}.bind(this));
     } else {//we can join raid
         if (consoleLog) {console.log('joinRaid, id: ' + currentRaidID + ', type: ' + currentQuestType + ', party ID: ' + currentPartyID + ', summon ID:' + currentSummonID);}
         kh.createInstance("apiABattles").joinBattle(currentRaidID,currentSummonID,currentPartyID,currentQuestType).then(function(e) {state = e.body;raidStage(); }.bind(this));
