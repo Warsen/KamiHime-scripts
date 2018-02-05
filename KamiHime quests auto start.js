@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         KamiHime quests auto start
 // @namespace    http://tampermonkey.net/
-// @version      11.01.2018
+// @version      05.02.2018
 // @description  Kamihime auto start quests
 // @author       Brig from discord
 // @include      https://cf.g.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
@@ -58,7 +58,7 @@ var decksForRecommendedElement = [
 //your can get one quest in variable to use it in priority list. you can choose party to run with this quest and try to find summon by name from friends
 var questRaidExample = {type:"raid", raid_id:5, party:"A", summonElement:"thunder", summon:"Anzu"};//summon raid 20 ap wind
 var questMainExample = {type:"main", world:2, main_quest_id:6, episode:2, party:"A", summonElement:"thunder", summon:"Anzu"};//main quest from 2nd world number 5 episode 2 (numbering is shared through worlds)
-var questFreeExample = {type:"free", world:1, free_quest_id:8, summonElement:"thunder", summon:"Anzu"};//free quest from 1st world number 8 from low
+var questFreeExample = {type:"free", world:1, free_quest_id:8, summonElement:"thunder", summon:"Anzu"};//free quest from 1st world number 8
 var questDailyExample = {type:"daily", daily_quest_id:1, party:"A", summonElement:"thunder", summon:"Anzu"};//beginner daily quest
 var questEventQuestExample = {type:"event_quest", event_quest_id:4, party:"E", summonElement:"fire", summon:"Fafnir"};//ultimate event quest
 var questEventRaidExample = {type:"event_raid", event_raid_id:3, party:"C", summonElement:"thunder", summon:"Anzu"};//blue expert
@@ -68,25 +68,26 @@ var questClearDailySPQuests = {type:"clearDailyMissionSPQuests"};//do beginner S
 var questUnionRaidExample = {type:"event_union", union_raid_id:2, party:"F", summonElement:"dark", summon:"Apocalypse"};//Lilim Expert, choose 1 or 2, cannot start demon raid
 var questEventStoryExample = {type:"event_story", event_story_id:4, party:"B", summonElement:"wind", summon:"Sleipnir"};// 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate
 var questAccessoryExample = {type:"accessory", accessory_quest_id:2, summonElement:"wind", summon:"Sleipnir"};//accessory daily quest rank 2
+
 // questsList is list of quests by your ID to start them automatically. If 1st quest is unavalable (like sunday SP or event SP or raid used 3 times) then try 2nd ect. If cannot start 1st with lack of AP then wait.
 var questsList = [
     {nutakuID:2222222222,priorityList:[
-        {type:"raid", raid_id:9, summonElement:"thunder", summon:"Anzu"},
-        {type:"raid", raid_id:7, summonElement:"thunder", summon:"Anzu"},
-        {type:"raid", raid_id:1, summonElement:"thunder", summon:"Anzu"},
-        {type:"raid", raid_id:3, summonElement:"thunder", summon:"Anzu"},
-        {type:"raid", raid_id:5, summonElement:"thunder", summon:"Anzu"},
-        {type:"raid", raid_id:11, summonElement:"thunder", summon:"Anzu"},
+        {type:"raid", raid_id:12, summonElement:"thunder", summon:"Anzu"},
+        {type:"raid", raid_id:8, summonElement:"thunder", summon:"Anzu"},
+        {type:"raid", raid_id:2, summonElement:"thunder", summon:"Anzu"},
+//        {type:"raid", raid_id:4, summonElement:"thunder", summon:"Anzu"},
+        {type:"raid", raid_id:6, summonElement:"thunder", summon:"Anzu"},
+        {type:"raid", raid_id:10, summonElement:"thunder", summon:"Anzu"},
 //		{type:"daily", daily_quest_id:3, summonElement:"thunder", summon:"Anzu"},
 //      {type:"clearDailyMissionSPQuests", party:"C", summonElement:"light", summon:"Hecatonchires"},
     ]},
     {nutakuID:1111111111,priorityList:[
-//		{type:"accessory", accessory_quest_id:4, party:"C", summonElement:"thunder", summon:"Yggdrasil"},//accessory daily quest rank 2
-//      {type:"guerrilla", guerrilla_quest_id:2, party:"B", summonElement:"wind", summon:"Sleipnir"},
-        {type:"clearDailyMissionSPQuests", summonElement:"wind", summon:"Sleipnir"},
-//      {type:"raid", raid_id:9, summonElement:"thunder", summon:"Anzu"},
-//      {type:"raid", raid_id:7, summonElement:"thunder", summon:"Anzu"},
-//      {type:"raid", raid_id:1, summonElement:"thunder", summon:"Anzu"},
+//		{type:"accessory", accessory_quest_id:4, party:"F", summonElement:"dark", summon:"Dullahan"},//accessory daily quest, don't use it yet
+//		{type:"guerrilla", guerrilla_quest_id:2, party:"B", summonElement:"wind", summon:"Sleipnir"},
+//		{type:"clearDailyMissionSPQuests", summonElement:"wind", summon:"Sleipnir"},
+//      {type:"raid", raid_id:12, summonElement:"thunder", summon:"Anzu"},
+//      {type:"raid", raid_id:8, summonElement:"thunder", summon:"Anzu"},
+//      {type:"raid", raid_id:2, summonElement:"thunder", summon:"Anzu"},
 //      {type:"raid", raid_id:3, summonElement:"thunder", summon:"Anzu"},
 //      {type:"raid", raid_id:5, summonElement:"thunder", summon:"Anzu"},
 //      {type:"raid", raid_id:11, summonElement:"thunder", summon:"Anzu"},
@@ -101,10 +102,11 @@ var questsList = [
 //		{type:"event_raid", event_raid_id:3, party:"C", summonElement:"thunder", summon:"Yggdrasil"},//ragnarok
 //		{type:"event_raid", event_raid_id:2, party:"C", summonElement:"thunder", summon:"Yggdrasil"},//expert
 //		{type:"event_raid", event_raid_id:1, party:"C", summonElement:"thunder", summon:"Yggdrasil"},//standart
-//      {type:"event_quest", event_quest_id:5, party:"F", summonElement:"dark", summon:"Dullahan"},//seem don't need it, will remove in future, for event_quest_id: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
-//		{type:"event_story", event_story_id:4, party:"B", summonElement:"wind", summon:"Sleipnir"}, //for event, 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate
-//		{type:"event_story", event_story_id:4, party:"C", summonElement:"thunder", summon:"Yggdrasil"}, //for new events 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
-      {type:"event_union", union_raid_id:2, party:"B", summonElement:"wind", summon:"Sleipnir"},//Lilim , choose 1 or 2, demon raids starts from raidsFilterList
+//      {type:"event_quest", event_quest_id:5, party:"F", summonElement:"dark", summon:"Dullahan"},//for common event: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
+//		{type:"event_quest", event_quest_id:4, party:"E", summonElement:"fire", summon:"Fafnir"},//for common event: 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
+//		{type:"event_story", event_story_id:4, party:"B", summonElement:"wind", summon:"Sleipnir"}, //for event with story mode, 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate
+//		{type:"event_story", event_story_id:4, party:"C", summonElement:"thunder", summon:"Yggdrasil"}, //for event with story mode, 1 - beginner, 2 - Standard, 3 - Expert, 4 - Ultimate, 5 - Ragnarok
+		{type:"event_union", union_raid_id:2, party:"A", summonElement:"light", summon:"Hecatonchires"},//Lilim , choose 1 or 2, demon raids starts from raidsFilterList
     ]},
 ];
 //filter to join raids
@@ -123,8 +125,8 @@ var raidsFilterList = [
 							{union_raid_id:[2]},//join union lilum raids. look at list of union raids IDs.
 						   ],
 	},
-    {nutakuID:1111111111,
-	 summon:"Behemoth", //you can specify only eidolon name, element will go from suggested element, then party will be chosen from "decksForRecommendedElement"
+    {nutakuID:1111111111,//attention! you cannot specify party for raids here, you must use "decksForRecommendedElement" parameters, if it fails then current party will be used
+	 summonElement:"light", summon:"Hecatonchires", //specify element for help summon or will be used element from soul of selected party
 	 raidsFilter:[{participants:0}, //join raids with n and less participants and do not join if 0
 //				  {battle_bp:10} //join raids with n bp. if not actual bp then will not join them
 //				  {raid_id:[1,3,5,7,9,11]} //join raids. look at list of raids IDs
@@ -140,9 +142,9 @@ var raidsFilterList = [
 					   {union_raid_id:[2]},//join union lilum raids. look at list of union raids IDs.
 					  ],
 // Demon raids filter is tricky. You cannot join raid where you have been from script. Script will join first raid that meet all requirements with less participants and then number. It will first check ultimates then expert if you specify both.
-	 unionDemonRaidsFilter:[{participants:0},//join union demon raids with n and less participants, 0 will work!
+	 unionDemonRaidsFilter:[{participants:2},//join union demon raids with n and less participants, 0 will work!
 					   {union_raid_id:[]},//join union demon raids. 4 - ultimate, 3 - expert. empty to not join them
-//					   {union_raid_id:[4,3]},//join union demon raids. 4 - ultimate, 3 - expert. uncomment to work
+//					   {union_raid_id:[3,4]},//join union demon raids. 4 - ultimate, 3 - expert.
 					  ],
 	}
 ];
@@ -874,6 +876,11 @@ function checkRequests1(eventRaidID,unionRaidID){//apply raid filters to list of
 	var bpFilter,participantsFilter,raidIdFilter,eventBpFilter,eventParticipantsFilter,eventRaidIdFilter,ragnarokBp,ragnarokParticipantsFilter,i,raidData,
 		unionParticipantsFilter,unionRaidIdFilter,ragnarokHasUnionMember,unionDemonParticipantsFilter,unionDemonRaidIdFilter;
     var yourFilter = raidsFilterList.filter(function ( obj ) {  return obj.nutakuID == info.player.dmm_id;})[0];
+	if (has(yourFilter,"summonElement")) {//if has element for suggested summon
+		currentSummonElement = yourFilter.summonElement;
+	} else {
+		currentSummonElement = "";
+	}
 	if (has(yourFilter,"summon")) {//if has suggested summon
 		currentSummon = yourFilter.summon;
 	} else {
@@ -1013,14 +1020,14 @@ function joinRaid(){//using global variables currentRaidID, currentQuestType, cu
     if (currentPartyID===0 || currentPartyID === undefined){//if not have currentPartyID then find it
         kh.createInstance("apiAParties").getDecks().then(function(e) {info.decks = e.body.decks;kh.createInstance("apiAPlayers").getMeNumeric().then(function(e) {info.player = e.body;getPartyID();}.bind(this));}.bind(this));
     } else if (currentSummonID===0 || currentSummonID===undefined){
-		var summonElement = currentRecommendedElement;
-		if (currentSummonElement !== undefined){
+		var	summonElement = info.decks.filter( obj => obj.a_party_id===currentPartyID )[0].job.element_type;//get element for summon from Soul of selected party
+		if (currentSummonElement !== undefined && currentSummonElement !== ""){//if element specified in raids parameters then use it
 			summonElement = elements.indexOf(currentSummonElement);
 		}
-		if (summonElement === 6) { // if not base element then we must find from another source
-			summonElement = info.decks.filter( obj => obj.a_party_id===currentPartyID )[0].job.element_type;
-		}
-	    kh.createInstance("apiASummons").getSupporters(summonElement).then(function(e) {info.supporters = e.body;getSummonID();}.bind(this));
+																						 
+																								   
+   
+        kh.createInstance("apiASummons").getSupporters(summonElement).then(function(e) {info.supporters = e.body;getSummonID();}.bind(this));
     } else {//we can join raid
         if (consoleLog) {console.log('joinRaid, id: ' + currentRaidID + ', type: ' + currentQuestType + ', party ID: ' + currentPartyID + ', summon ID:' + currentSummonID);}
         kh.createInstance("apiABattles").joinBattle(currentRaidID,currentSummonID,currentPartyID,currentQuestType).then(function(e) {state = e.body;raidStage(); }.bind(this));
