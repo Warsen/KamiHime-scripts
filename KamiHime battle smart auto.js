@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         KamiHime battle smart auto
 // @namespace    http://tampermonkey.net/
-// @version      11.01.2018
+// @version      05.02.2018
 // @description  full auto in battle in Kamihime game
 // @author       You
 // @include      https://cf.g.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/battle/app.html*
@@ -316,7 +316,7 @@ function checkAbilityNeeded(color,type,name,char){
 								  "Mental Abberation","Chaos Inferno","Deep Attraction","Aqua Drowning","Death Swords","Soul Reaper",
 								  "Wind of Lovesickness","Immolation","Blackout","Love Perfume","Evil Eye's Curse","Black Shroud","Putrify",
 								 "Chaotic Fog","Walpurgis Night","Cursed Undead","Enchanting Harp","To Catch a Thief","Berserker","Icicle Prison",
-								 "Striking Thunder Blast","Blitz Donner","Moonbeam Arrow","Mutsuru Sakuya","Admiration of Wei"];//always use if enemy with gauge else do not use
+								 "Striking Thunder Blast","Blitz Donner","Moonbeam Arrow","Mutsuru Sakuya","Admiration of Wei","Particle Flash"];//always use if enemy with gauge else do not use
 	var abilitiesDebuffEnemy = [25,53,49,45,44,34,43,50];//25 - DEF↓, 53 - ATK↓, 49 - ATK↓, 45 - Dizziness to an enemy, 34 - Chain attack rate↓, 43 - Enemy's max Overdrive Meter↑
 	var abilitiesEnemyBuffedByName = ["Alfrodull","Sugary Crush"];
     var abilitiesEnemyBuffed = [56];
@@ -749,7 +749,10 @@ battleStatusesByID = [
 {100: "ATK↓, slot X, Stackable"},
 {101: "Fire ATK↑"},
 {103: "Wind ATK↑"},
+{105: "Light ATK↑"},
 {116: "Thunder RST↑"},
+{118: "Dark RST↑"},
+{123: "Light RST↓"},
 {134: "Covers in snow, freezing movements"},
 {40001: "Summon, ATK↑"},
 {40002: "Summon, ATK↓"},
