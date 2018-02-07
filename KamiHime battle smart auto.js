@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         KamiHime battle smart auto
 // @namespace    http://tampermonkey.net/
-// @version      05.02.2018
+// @version      07.02.2018
 // @description  full auto in battle in Kamihime game
 // @author       You
 // @include      https://cf.g.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/battle/app.html*
@@ -15,6 +15,7 @@ var callForHelp = true; // call for help during your raids
 var useBurstAbilitesOnNormalGauge = true; //use (true) or not (false) burst and attack abilities during normal gauge on bosses
 //New!
 var strongEnemyHP = 300000;//HP for Enemy. Script will use all debuffs and damage skills if enemy has more HP than this.
+var speedUpAnimationBy = 4;//speed up animation by x times, in game fast is 1.6
 
 var turnNumber;
 var battleWorld;
@@ -39,6 +40,9 @@ function doOnce(){//do once at battle start
     setTimeout(resolveRescue,30000);//wait before call help
     //get potion from stamps
 	if (!hasSuperPotion()){setTimeout(getPotion,5000);}
+	//speed up animation by user factor
+	var conf = kh.createInstance("playerGameConfig");
+    conf.BATTLE_SPEED_SETTINGS.quick = speedUpAnimationBy;
     //prepare for circle
     var turnStage = 1;
     doTurn(turnStage);
@@ -93,7 +97,7 @@ function doTurn(stage) {
                     //do summon
                     var doneSummon = doSummon();
                     stage=stage+1;
-                    if (doneSummon) {timeout=6000;} else {timeout=0;}
+                    if (doneSummon) {timeout=4000;} else {timeout=0;}
                     break;
                 case 2:
                     //do heals
