@@ -22,3 +22,5 @@ Description of scripts:
 "KamiHime battle smart auto.js" Works during battle. Uses abilities and summons. It plays better then auto from game but you cannot play battle manually! Enable this script only when it's needed.
 
 "KamiHime auto gacha.js" Script for auto use Gem gacha. It will draw 10 batches, when inventory is full it will sell N (without +) weapons and eidolons, repeat. Must stop when there is no place in inventory or used day's batch draws. You need to use daily free draw first for script to work.
+
+"KamiHime battle speed up.js" You can set speed up factor for animation in battle, it's working if you set fast for animation in game menu.
