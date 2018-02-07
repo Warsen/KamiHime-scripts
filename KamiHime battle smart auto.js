@@ -13,9 +13,7 @@
 var autoBattle = true; //set to false to end turns manually
 var callForHelp = true; // call for help during your raids
 var useBurstAbilitesOnNormalGauge = true; //use (true) or not (false) burst and attack abilities during normal gauge on bosses
-//New!
 var strongEnemyHP = 300000;//HP for Enemy. Script will use all debuffs and damage skills if enemy has more HP than this.
-var speedUpAnimationBy = 4;//speed up animation by x times, in game fast is 1.6
 
 var turnNumber;
 var battleWorld;
@@ -40,9 +38,6 @@ function doOnce(){//do once at battle start
     setTimeout(resolveRescue,30000);//wait before call help
     //get potion from stamps
 	if (!hasSuperPotion()){setTimeout(getPotion,5000);}
-	//speed up animation by user factor
-	var conf = kh.createInstance("playerGameConfig");
-    conf.BATTLE_SPEED_SETTINGS.quick = speedUpAnimationBy;
     //prepare for circle
     var turnStage = 1;
     doTurn(turnStage);
