@@ -9,11 +9,14 @@
 // ==/UserScript==
 
 var speedUpAnimationBy = 4;//speed up animation by x times, in game fast is 1.6
+var playSafe = true;//in raids speed up only in union demon raids, do not provoke other players
 
 function waitStart(){
-	if (kh && kh.createInstance) {
+	if (kh && kh.createInstance && cc && cc.director && cc.director._runningScene && cc.director._runningScene.isRaid) {
 		var conf = kh.createInstance("playerGameConfig");
-		if (conf.BATTLE_SPEED_SETTINGS.quick !== speedUpAnimationBy){
+		if (conf.BATTLE_SPEED_SETTINGS.quick !== speedUpAnimationBy &&
+            (!playSafe || (!cc.director._runningScene.isRaid() || cc.director._runningScene.getQuestType() === "event_union_demon_raid"))
+           ){
 			conf.BATTLE_SPEED_SETTINGS.quick = speedUpAnimationBy;
 			kh.createInstance("battleWorld").reloadBattle();
 		}
