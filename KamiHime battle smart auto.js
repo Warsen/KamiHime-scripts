@@ -63,6 +63,10 @@ function doTurn(stage) {
 
     switch(visibleButton) {
         case 1: //REVIVE
+			if (cc.director._runningScene.getQuestType()==="event_union_demon_raid"){
+				gotoHome();
+				return;
+			}
 			setTimeout(gotoHome,300000);//go to home page after 5 min
 			return;
 //            stage = 99; //last stage, do nothing
