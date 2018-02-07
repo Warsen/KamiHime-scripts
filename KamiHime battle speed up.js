@@ -8,15 +8,18 @@
 // @run-at       document-end
 // ==/UserScript==
 
-var speedUpAnimationBy = 8;//speed up animation by x times, in game fast is 1.6
+var speedUpAnimationBy = 4;//speed up animation by x times, in game fast is 1.6
 
 function waitStart(){
 	if (kh && kh.createInstance) {
 		var conf = kh.createInstance("playerGameConfig");
-		conf.BATTLE_SPEED_SETTINGS.quick = speedUpAnimationBy;
+		if (conf.BATTLE_SPEED_SETTINGS.quick !== speedUpAnimationBy){
+			conf.BATTLE_SPEED_SETTINGS.quick = speedUpAnimationBy;
+			kh.createInstance("battleWorld").reloadBattle();
+		}
 	} else {
-		setTimeout(waitStart,2000);
+		setTimeout(waitStart,500);
 	}
 }
 
-setTimeout(waitStart,5000);
+setTimeout(waitStart,3000);
