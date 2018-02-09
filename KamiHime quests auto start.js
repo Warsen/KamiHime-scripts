@@ -205,7 +205,10 @@ function checkQuestInfo(stage){ //must do pending quests and raids
 				break;
 			};
 		default:
-			if (has(info,"questInfo","in_progress","own_raid")) {//have own unfinished raid
+			if (info.questInfo.has_unverified) { // there is completed raid without gotten result
+				if (consoleLog) {console.log('have unverified raid');}
+				kh.createInstance("apiABattles").getUnverifiedList().then(function(e) {info.raidUnverifiedList = e.body;resolveUnverifiedRaid();}.bind(this));
+			} else if (has(info,"questInfo","in_progress","own_raid")) {//have own unfinished raid
 				if (consoleLog) {console.log('have own unfinished raid');}
 				currentRaidID = info.questInfo.in_progress.own_raid.a_battle_id;
 				currentQuestID = info.questInfo.in_progress.own_raid.a_quest_id;
@@ -218,9 +221,6 @@ function checkQuestInfo(stage){ //must do pending quests and raids
 				currentQuestType = info.questInfo.in_progress.own_quest.type;
 				if (consoleLog) {console.log('have unfinished quest, type: ' + currentQuestType + ', id: ' + currentQuestID);}
 				kh.createInstance("apiAQuests").getCurrentState(currentQuestID,currentQuestType).then(function(e) {state = e.body;nextStage();}.bind(this));
-			} else if (info.questInfo.has_unverified) { // there is complited raid without gotten result
-				if (consoleLog) {console.log('have unverified raid');}
-				kh.createInstance("apiABattles").getUnverifiedList().then(function(e) {info.raidUnverifiedList = e.body;resolveUnverifiedRaid();}.bind(this));
 			} else {
 				nextPriority=0;
 				checkPriorityList();
