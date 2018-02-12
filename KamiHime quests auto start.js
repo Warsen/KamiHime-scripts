@@ -401,7 +401,10 @@ function checkPriorityList(){
                     kh.createInstance("apiAMissions").getDaily().then(function(e) {info.daily_missions = e.body;checkDailyMissions();}.bind(this));
                     break;
                 case "accessory":
-                   if (has(quest,"accessory_quest_id")){
+                    if (has(info,"questInfo","accessory_quest_remaining_challenge_count") && info.questInfo.accessory_quest_remaining_challenge_count===0) {
+                        if (consoleLog) {console.log('all accessory quest attempts were used');}
+                        checkPriorityList();
+                    } else if (has(quest,"accessory_quest_id")){
                         currentQuestType = "accessory";
                         currentQuest = quest.accessory_quest_id;
                         if (has(quest,"party")){currentParty = quest.party;}else{currentParty="";}
