@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         KamiHime battle smart auto
 // @namespace    http://tampermonkey.net/
-// @version      07.02.2018
+// @version      13.02.2018
 // @description  full auto in battle in Kamihime game
 // @author       You
 // @include      https://cf.g.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/battle/app.html*
@@ -258,6 +258,7 @@ function doAutoButton() { //auto button
 }
 
 function doSummon(){
+	var eidolonsNotNeeded = ["Saint Nicholas"];
     var ban = cc.director._runningScene._seekWidgetByName("banfilter_summon");
     if (!has(battleWorld, "battleUI", "SummonPanelGroup", "panelList"))  { console.log('banfilter'); return false; }
     var panelList = battleWorld.battleUI.SummonPanelGroup.panelList;
@@ -282,7 +283,7 @@ function doSummon(){
 				if (needRecover()){
 					summonID = i; // always summon Behemoth if available and need to recover statuses
 				}
-			} else if (summonID===-1){
+			} else if (summonID===-1 && has(battleWorld,"summonList",i,"model","attributes","name") && eidolonsNotNeeded.indexOf(battleWorld.summonList[i].model.attributes.name)===-1){
 				summonID = i; // summon only first available eidolon
 			}
 		}
