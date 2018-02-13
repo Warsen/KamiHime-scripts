@@ -37,7 +37,7 @@ function doOnce(){//do once at battle start
     //resolve helpers
     setTimeout(resolveRescue,30000);//wait before call help
     //get potion from stamps
-	if (!hasSuperPotion()){setTimeout(getPotion,5000);}
+//	if (!hasSuperPotion()){setTimeout(getPotion,5000);}
     //prepare for circle
     var turnStage = 1;
     doTurn(turnStage);
@@ -311,7 +311,7 @@ function doSummon(){
 }
 
 function checkAbilityNeeded(color,type,name,char){
-	var abilitiesNotNeededByName = ["King of Flies","Misty MoonLight","Mega Therion","Zombie Powder","Charis Ring"];
+	var abilitiesNotNeededByName = ["King of Flies","Misty MoonLight","Mega Therion","Zombie Powder","Charis Ring","Abduction"];
     var abilitiesNotNeeded = [55,16];//55 - rampaging, 16 - buff with debuff
 	var abilitiesAlwaysUse = [1,41,17];//41 - Burst Gauge↑ self, 17 - Burst Gauge↑ All, 1 - Refills Burst Gauge
 	var abilitiesStackableByName = ["Golden Age","Fury","Meginjord","Sun Spread","Raizu and Fight","Crimson Fury","Crimson Eruption","Nymph's Dance","Adverse Wind","Book of Raziel"];
