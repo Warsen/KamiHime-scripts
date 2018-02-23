@@ -18,11 +18,15 @@ function waitStart(){
             (!playSafe || (!cc.director._runningScene.isRaid() || cc.director._runningScene.getQuestType() === "event_union_demon_raid"))
            ){
 			conf.BATTLE_SPEED_SETTINGS.quick = speedUpAnimationBy;
-			kh.createInstance("battleWorld").reloadBattle();
+			setTimeout(reload,5000);
 		}
 	} else {
 		setTimeout(waitStart,500);
 	}
+}
+
+function reload(){
+	kh.createInstance("battleWorld").reloadBattle();
 }
 
 setTimeout(waitStart,3000);
