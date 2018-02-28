@@ -22,6 +22,7 @@ var raidCircleTime = 30000; //ms, time between checks of raid requests when you 
 var minBPforCheckingRaids = 3;//if have less then minBPforCheckingRaids bp, do not check raid requests
 var consoleLog = true; //flag to log to console
 var useElixirForRagnarok = false; //flag to use half elexir to start Ragnarok
+var joinRaidTimeout = 10000; //ms, timeout to join disaster and event raids
 //for info:
 // list of quest types.
 var questTypes = ["main","free","raid","daily","event_quest","event_raid","guerrilla","clearingWorlds","clearDailyMissionSPQuests"];
@@ -962,7 +963,7 @@ function checkRequests1(eventRaidID,unionRaidID){//apply raid filters to list of
 			}
 			//all filters checked, can join raid
 			joinRaidData(raidData);
-			joinRaid();
+			setTimeout(joinRaid,joinRaidTimeout);
 			return;
 		}
 		if (unionDemonRaidIdFilter !== "undefined" && unionRaidID > 0 ){
