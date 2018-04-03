@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         KamiHime auto gacha
 // @namespace    http://tampermonkey.net/
-// @version      02.11.2017
+// @version      03.04.2018
 // @description  auto gacha in Kamihime game
 // @author       You
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
@@ -15,7 +15,7 @@
 function start(){//wait to push buttons
 	if (has(cc, "director", "_runningScene", "_seekWidgetByName")){
 		if (location.hash.startsWith("#!gacha/ga_004")){
-			setTimeout(next,5000);
+			setTimeout(next,3000);
 		} else {
 			setTimeout(next,1000);
 		}
@@ -28,19 +28,27 @@ function start(){//wait to push buttons
 function next(){
 //	console.log(location.hash);
 	if (location.hash.startsWith("#!gacha/ga_ani")) {
-		push_button(cc.director._runningScene._seekWidgetByName("btn_skip"),2000);
-	} else if (location.hash.startsWith("#!gacha/ga_010")) {
-		if (cc.director._runningScene.seekWidgetByPath("btn_together_10_gacha").getTitleText()===""){
-			setTimeout(next,1000);
-		} else if (cc.director._runningScene.seekWidgetByPath("btn_together_10_gacha").getTitleText()==="Draw 10 chain Gacha"){
-			push_button(cc.director._runningScene._seekWidgetByName("btn_together_10_gacha"));
+		var buttonSkip = cc.director._runningScene._seekWidgetByName("btn_skip");
+		if (buttonSkip && buttonSkip !== "null" && buttonSkip !== "undefined" && buttonSkip._visible) {
+			push_button(buttonSkip,2000);
 		} else {
-			gotoWeapon();
+			start();
+		}
+	} else if (location.hash.startsWith("#!gacha/ga_010")) {
+		let button = cc.director._runningScene._seekWidgetByName("btn_bottom_gacha");
+		if (button && button !== "null" && button !== "undefined") {
+			if (button._clickedFileName !== ""){
+				push_button(cc.director._runningScene._seekWidgetByName("btn_top_gacha"));
+			} else {
+				gotoWeapon();
+			}
+		} else {
+			setTimeout(start,1000);
 		}
 	} else if (location.hash.startsWith("#!gacha/ga_004")) {
-		var button = cc.director._runningScene._seekWidgetByName("btn_bottom_gacha");
+		let button = cc.director._runningScene._seekWidgetByName("btn_bottom_gacha");
 		if (button && button !== "null" && button !== "undefined") {
-			if (button._visible){
+			if (button._clickedFileName !== ""){
 				push_button(cc.director._runningScene._seekWidgetByName("btn_top_gacha"));
 			} else {
 				console.log('stop script - no more batch gacha');
