@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         KamiHime battle smart auto
 // @namespace    http://tampermonkey.net/
-// @version      22.02.2018
+// @version      04.04.2018
 // @description  full auto in battle in Kamihime game
 // @author       You
 // @include      https://cf.g.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/battle/app.html*
@@ -17,9 +17,12 @@ var callFriends = true; // call friends for help, true/false
 var callUnion = true; // call union for help, true/false
 var useBurstAbilitesOnNormalGauge = true; //use (true) or not (false) burst and attack abilities during normal gauge on bosses
 var strongEnemyHP = 300000;//HP for Enemy. Script will use all debuffs and damage skills if enemy has more HP than this.
+var waitAnimationTime = 30000;// how long to wait animation or hung before force reload
 
 var turnNumber;
 var battleWorld;
+var lastAbility,lastAbilityChar,lastAbilityTurn;
+var lastBusyTime,lastWasBusy=false;
 
 function waitStart(){//wait to push buttons
     battleWorld = kh.createInstance("battleWorld");
@@ -40,7 +43,7 @@ function doOnce(){//do once at battle start
     //resolve helpers
     setTimeout(resolveRescue,5000);//wait before call help
     //get potion from stamps
-//	if (!hasSuperPotion()){setTimeout(getPotion,5000);}
+	if (!hasSuperPotion()){setTimeout(getPotion,5000);}
     //prepare for circle
     var turnStage = 1;
     doTurn(turnStage);
@@ -83,13 +86,24 @@ function doTurn(stage) {
                 timeout = 3000;
                 turnNumber=-1;
             }
+			lastWasBusy = false;
             break;
         case 3: //NONE - must wait
-            timeout = 500;
+			timeout = 500;
+			if (!lastWasBusy){
+				lastBusyTime = new Date();
+//				console.log('last busy time ' + lastBusyTime);
+				lastWasBusy = true;
+			} else if (new Date() - lastBusyTime > waitAnimationTime){
+				lastWasBusy = false;
+				timeout = 5000;
+				kh.createInstance("battleWorld").reloadBattle();
+			}
             break;
         case 0: //ATTACK - can do actions
             //set target to enemy if none
             if (battleWorld.getTarget()==-1) { setTarget(); }
+			lastWasBusy = false;
             switch(stage) {
                 case 1:
                     //do summon
@@ -144,6 +158,16 @@ function doTurn(stage) {
                     if (burstOn === burstMustBeOff) {
 						battleWorld.battleUI.BurstButton._widget._releaseUpEvent();
                         timeout=500;
+                    } else {
+                        stage=stage+1;
+                        timeout=0;
+                    }
+                    break;
+                case 7:
+                    //use potions
+                    var donePotion = usePotion();
+                    if (donePotion) {
+                        timeout=2000;
                     } else {
                         stage=stage+1;
                         timeout=0;
@@ -367,7 +391,8 @@ function checkAbilityNeeded(color,type,name,char){
 	var abilitiesHealAlly = [21];
 	var abilitiesHealSelf = [24];
 	var abilitiesRegeneration = [22];
-	var abilitiesOnEnemySpecialAttack = [28,14,11,7,6];//28 - Intercept, 14 - Nullify, 11 - Damage or Res Cut, 7 - Cuts DMG, 6 - Reflect
+	var abilitiesOnEnemySpecialAttack = [14,11,7,6];//14 - Nullify, 11 - Damage or Res Cut, 7 - Cuts DMG, 6 - Reflect
+	var abilitiesNotOnEnemySpecialAttack = [28];//28 - Intercept(Transfer)
     var need;
 
 	if (abilityNameInList(name,abilitiesNotNeededByName))        return false;
@@ -393,6 +418,7 @@ function checkAbilityNeeded(color,type,name,char){
     if (abilitiesEnemyBuffed.indexOf(type)>-1)                   return enemyIsBuffed();
     if (abilitiesReduceActiveDot.indexOf(type)>-1)               return (enemyHasGauge() || enemyIsStrong()) && enemyHasActiveDot();
     if (abilitiesOnEnemySpecialAttack.indexOf(type)>-1)          return ((enemyHasGauge() && !enemyStunned()) || enemyIsStrong()) && enemyHasMaxActiveDots();
+	if (abilitiesNotOnEnemySpecialAttack.indexOf(type)>-1)       return !(enemyHasGauge() && !enemyStunned() && enemyHasMaxActiveDots());
 	if (abilitiesAttackType1.indexOf(type)>-1)                   return hasStatus(6);
     if (abilitiesAttackType2.indexOf(type)>-1)                   return hasStatus(7);
     if (abilitiesAttackType3.indexOf(type)>-1)                   return hasStatus(40001);
@@ -502,7 +528,7 @@ function hasStatus(abilityID){
 }
 
 function enemyIsBuffed(){
-	var abilityID=[5,6,7,9,13,14,15,19,21,23,24,27,78,84,40003,40001,40005];
+	var abilityID=[5,6,7,9,13,14,15,19,21,23,24,27,35,75,78,84,40003,40001,40005];
 	var target = battleWorld.getTarget();
     if (has(battleWorld,"battleStatus","_enemies", target, "status_effects")){
 		var charStats = battleWorld.battleStatus._enemies[target].status_effects;
@@ -578,7 +604,7 @@ function doAbility(color){
         if ( has(abilities, i) && charHP!==0){
             var charAbilities = abilities[i];
             for (var j=0;j<charAbilities.length;j++) {
-                if (has(charAbilities, j, "_abilityData")){
+                if (has(charAbilities, j, "_abilityData") && !(lastAbilityChar === i && lastAbility === j && lastAbilityTurn === turnNumber)){
                     var charAbilitiesData = charAbilities[j]._abilityData;
                     if (has(charAbilitiesData, "color") && has(charAbilitiesData, "party_member_selectable") && has(charAbilitiesData, "is_banned") && has(charAbilitiesData, "ready") && has(charAbilitiesData, "type")){
                         var abilityColor = charAbilitiesData.color;
@@ -594,11 +620,13 @@ function doAbility(color){
 								var partyTarget = getPartyTarget(charAbilitiesData.party_member_selectable_type);
 								if (abilityNeeded && partyTarget>-1) {
 									battleWorld._useAbility(i, j, partyTarget); //use ability
+									lastAbilityChar = i; lastAbility = j; lastAbilityTurn = turnNumber;
 									return true;
 								}
 							} else {
  								if (abilityNeeded) {
 									battleWorld._useAbility(i, j); //use ability
+									lastAbilityChar = i; lastAbility = j; lastAbilityTurn = turnNumber;
 									return true;
 								}
 							}
@@ -611,6 +639,20 @@ function doAbility(color){
         }
     }
     return false;
+}
+
+function usePotion(){
+	var needP = needPotion();
+	if (hasSuperPotion() && (needP.needs > 1 || (needP.needs > 0 && needP.needHow === -1 && !hasPotion()))){
+		battleWorld.useItem("cure-medic");
+		return true;
+	}
+	if (needP.needs > 0 && hasPotion()){
+//		console.log("trying use potion on " + needP.needFirst + " char");
+		battleWorld.useItem("cure-bottle",needP.needFirst);
+		return true;
+	}
+	return false;
 }
 
 function getPartyTarget(type){
@@ -683,6 +725,36 @@ function hasSuperPotion(){
 	} else {
 		return false;
 	}
+}
+
+function hasPotion(){
+	if (has(battleWorld,"battleStatus","_cureItems",0,"count") && battleWorld.battleStatus._cureItems[0].count>0){
+		return true;
+	} else {
+		return false;
+	}
+}
+
+function needPotion(){
+	var result = {needs: 0, needFirst : -1, needHow : 1};
+    if (has(battleWorld, "characterPanelList")){
+        var charStats = battleWorld.characterPanelList;
+        var len = charStats.length;
+        for (var i=0;i<len;i++) {
+            if (has(charStats, i ,"_avatarData", "hp")){
+                charHP = charStats[i]._avatarData.hp;
+                charMaxHp = charStats[i]._avatarData.hpmax;
+                if (charHP!==0 && (charHP/charMaxHp)<0.5){//if 50% of hp then need potion
+                    result.needs = result.needs + 1;
+					if (result.needFirst === -1 || (result.needFirst > -1 && (charHP/charMaxHp<result.needHow || charStats[i]._avatarData.is_job))) {
+						result.needFirst = i;
+						result.needHow = charStats[i]._avatarData.is_job ? -1 : charHP/charMaxHp;
+					}
+                }
+            }
+        }
+    }
+    return result;
 }
 
 function clearWaitFinish(){
