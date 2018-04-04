@@ -17,7 +17,7 @@ var callFriends = true; // call friends for help, true/false
 var callUnion = true; // call union for help, true/false
 var useBurstAbilitesOnNormalGauge = true; //use (true) or not (false) burst and attack abilities during normal gauge on bosses
 var strongEnemyHP = 300000;//HP for Enemy. Script will use all debuffs and damage skills if enemy has more HP than this.
-var waitAnimationTime = 30000;// how long to wait animation or hung before force reload
+var waitAnimationTime = 40000;// how long to wait animation or hung before force reload
 
 var turnNumber;
 var battleWorld;
