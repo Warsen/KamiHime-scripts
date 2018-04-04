@@ -96,8 +96,9 @@ function doTurn(stage) {
 				lastWasBusy = true;
 			} else if (new Date() - lastBusyTime > waitAnimationTime){
 				lastWasBusy = false;
-				timeout = 5000;
+                setTimeout(waitStart,5000);
 				kh.createInstance("battleWorld").reloadBattle();
+                return;
 			}
             break;
         case 0: //ATTACK - can do actions
