@@ -12,6 +12,8 @@
 // @run-at       document-end
 // ==/UserScript==
 
+//obsolete
+
 function start(){//wait to push buttons
 	if (has(cc, "director", "_runningScene", "_seekWidgetByName")){
 		if (location.hash.startsWith("#!gacha/ga_004")){
