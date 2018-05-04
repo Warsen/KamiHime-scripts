@@ -15,11 +15,14 @@
 
 //to use script without errors deactivate auto start script, activate this script and go to weapon inventory
 //look into console for progress -  F12, console
-var sell_R_Eidolons = false;
+var sell_R_Eidolons = true;
+
+var firstBatch;
 
 function start(){
 	if (has(cc, "director", "_runningScene", "_seekWidgetByName") && has(kh, "createInstance")){
 		if (location.hash.startsWith("#!gacha/ga_004")){
+            firstBatch = true;
 			setTimeout(getGachaInfo,1000);
 		} else if (location.hash.startsWith("#!/li_002")){
 			setTimeout(saleWeapons,1000);
@@ -39,22 +42,32 @@ function getGachaInfo(){
 function drawGacha(normalGachaInfo){
 //    console.log(normalGachaInfo);
     if (normalGachaInfo.is_max_weapon_or_summon) {
+        if (firstBatch) {
+            console.log("Inventory is full, clear it and start script again. Stop script");
+            return;
+        }
         console.log("Inventory is full, go to sell");
         kh.createInstance("router").navigate("list/li_002");
         return;
     }
     if (has(normalGachaInfo,"groups",1) && normalGachaInfo.groups[1].enabled){
         if (normalGachaInfo.groups[1].gacha_count !== 10) {
+            if (firstBatch) {
+                console.log("Inventory is near full limit, clear it and start script again. Stop script");
+                return;
+            }
             console.log("Less then 10 items in gacha, go to sell");
             kh.createInstance("router").navigate("list/li_002");
             return;
         }
         kh.createInstance("apiAGacha").playGacha("normal",normalGachaInfo.groups[1].gacha_id).then(function(e) {var info = e.body;console.log(info.obtained_info);
+                                                                                                                firstBatch = false;
                                                                                                                 getGachaInfo();
                                                                                                                }.bind(this));
         return;
     } else if (has(normalGachaInfo,"groups",0) && normalGachaInfo.groups[0].enabled){
         kh.createInstance("apiAGacha").playGacha("normal",normalGachaInfo.groups[0].gacha_id).then(function(e) {var info = e.body;console.log(info.obtained_info);
+                                                                                                                firstBatch = false;
                                                                                                                 getGachaInfo();
                                                                                                                }.bind(this));
         return;
