@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         KamiHime battle smart auto
 // @namespace    http://tampermonkey.net/
-// @version      04.04.2018
+// @version      04.05.2018
 // @description  full auto in battle in Kamihime game
 // @author       You
 // @include      https://cf.g.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/battle/app.html*
@@ -105,6 +105,9 @@ function doTurn(stage) {
             //set target to enemy if none
             if (battleWorld.getTarget()==-1) { setTarget(); }
 			lastWasBusy = false;
+            if (cc.director._runningScene.getQuestType() === "guerrilla"){
+                stage = 10;//skip all skills
+            }
             switch(stage) {
                 case 1:
                     //do summon
