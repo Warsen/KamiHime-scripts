@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         KamiHime new silent gacha
 // @namespace    http://tampermonkey.net/
-// @version      03.05.2018
+// @version      04.05.2018
 // @description  auto gacha in Kamihime game
 // @author       You
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
@@ -43,6 +43,11 @@ function drawGacha(normalGachaInfo){
         return;
     }
     if (has(normalGachaInfo,"groups",1) && normalGachaInfo.groups[1].enabled){
+        if (normalGachaInfo.groups[1].gacha_count !== 10) {
+            console.log("Less then 10 items in gacha, go to sell");
+            kh.createInstance("router").navigate("list/li_002");
+            return;
+        }
         kh.createInstance("apiAGacha").playGacha("normal",normalGachaInfo.groups[1].gacha_id).then(function(e) {var info = e.body;console.log(info.obtained_info);
                                                                                                                 getGachaInfo();
                                                                                                                }.bind(this));
