@@ -65,23 +65,29 @@ function drawGacha(normalGachaInfo){
 }
 
 function saleWeapons(){
-     kh.createInstance("apiAWeapons").getRecommendSellableList().then(function(e) {var sellList = e.body;
-                                                                                   if (sellList.max_record_count ===0) {console.log("No weapons to sell, go to eidolons");
-                                                                                                                        saleEidolons();}
-                                                                                   else {
-                                                                                       console.log(sellList);
-                                                                                       var ids = [];
-                                                                                       sellList.data.forEach(function(item){ids.push(item.a_weapon_id);});
-                                                                                       kh.createInstance("apiAWeapons").sell(ids).then(function(e) {saleWeapons();}.bind(this));
-                                                                                   }}.bind(this));
-}
-
-function saleEidolons(){
-     kh.createInstance("apiASummons").getList(0,400).then(function(e) {var list = e.body;
+     kh.createInstance("apiAWeapons").getList(0,500).then(function(e) {var list = e.body;
                                                                        var sellList = [];
                                                                        var ids = [];
                                                                        list.data.forEach(function(item){
-                                                                           {if (item.bonus ===0 && (item.rare === "N" || (sell_R_Eidolons && item.rare === "R"))) {
+                                                                           {if (item.rare === "N" && item.bonus === 0 && !item.is_equipped && !item.is_locked) {
+                                                                               ids.push(item.a_weapon_id);
+                                                                               sellList.push(item);
+                                                                           }}
+                                                                       });
+                                                                       if (ids.length ===0) {console.log("No weapons to sell, go to eidolons");
+                                                                                             saleEidolons();}
+                                                                       else {
+                                                                           console.log(sellList);
+                                                                           kh.createInstance("apiAWeapons").sell(ids).then(function(e) {saleEidolons();}.bind(this));
+                                                                       }}.bind(this));
+}
+
+function saleEidolons(){
+     kh.createInstance("apiASummons").getList(0,500).then(function(e) {var list = e.body;
+                                                                       var sellList = [];
+                                                                       var ids = [];
+                                                                       list.data.forEach(function(item){
+                                                                           {if (item.can_sell && item.bonus === 0 && (item.rare === "N" || (sell_R_Eidolons && item.rare === "R"))) {
                                                                                ids.push(item.a_summon_id);
                                                                                sellList.push(item);
                                                                            }}
@@ -90,7 +96,7 @@ function saleEidolons(){
                                                                                              kh.createInstance("router").navigate("gacha/ga_004");}
                                                                        else {
                                                                            console.log(sellList);
-                                                                           kh.createInstance("apiASummons").sell(ids).then(function(e) {saleEidolons();}.bind(this));
+                                                                           kh.createInstance("apiASummons").sell(ids).then(function(e) {kh.createInstance("router").navigate("gacha/ga_004");}.bind(this));
                                                                        }}.bind(this));
 }
 
