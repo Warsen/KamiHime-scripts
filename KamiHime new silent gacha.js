@@ -15,6 +15,7 @@
 
 //to use script without errors deactivate auto start script, activate this script and go to weapon inventory
 //look into console for progress -  F12, console
+var sell_R_Eidolons = false;
 
 function start(){
 	if (has(cc, "director", "_runningScene", "_seekWidgetByName") && has(kh, "createInstance")){
@@ -76,15 +77,21 @@ function saleWeapons(){
 }
 
 function saleEidolons(){
-     kh.createInstance("apiASummons").getRecommendSellableList().then(function(e) {var sellList = e.body;
-                                                                                   if (sellList.max_record_count ===0) {console.log("No eidolons to sell, go to gacha");
-                                                                                                                        kh.createInstance("router").navigate("gacha/ga_004");}
-                                                                                   else {
-                                                                                       console.log(sellList);
-                                                                                       var ids = [];
-                                                                                       sellList.data.forEach(function(item){ids.push(item.a_summon_id);});
-                                                                                       kh.createInstance("apiASummons").sell(ids).then(function(e) {saleEidolons();}.bind(this));
-                                                                                   }}.bind(this));
+     kh.createInstance("apiASummons").getList(0,400).then(function(e) {var list = e.body;
+                                                                       var sellList = [];
+                                                                       var ids = [];
+                                                                       list.data.forEach(function(item){
+                                                                           {if (item.bonus ===0 && (item.rare === "N" || (sell_R_Eidolons && item.rare === "R"))) {
+                                                                               ids.push(item.a_summon_id);
+                                                                               sellList.push(item);
+                                                                           }}
+                                                                       });
+                                                                       if (ids.length ===0) {console.log("No eidolons to sell, go to gacha");
+                                                                                             kh.createInstance("router").navigate("gacha/ga_004");}
+                                                                       else {
+                                                                           console.log(sellList);
+                                                                           kh.createInstance("apiASummons").sell(ids).then(function(e) {saleEidolons();}.bind(this));
+                                                                       }}.bind(this));
 }
 
 function has(obj) {
