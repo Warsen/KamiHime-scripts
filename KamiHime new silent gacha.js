@@ -15,7 +15,7 @@
 
 //to use script without errors deactivate auto start script, activate this script and go to weapon inventory
 //look into console for progress -  F12, console
-var sell_R_Eidolons = true;
+var sell_R_Eidolons = false;
 
 var firstBatch;
 
