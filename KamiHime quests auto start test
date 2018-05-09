@@ -867,7 +867,7 @@ function checkRequests(eventRaidID,unionRaidID){//prepare data for raid requests
 			if (has(firstEventQuest)) {
 				kh.createInstance("apiAItems").getCure(1, 10).then(function(e) {info.cure_items = e.body;checkRequests(firstEventQuest.quest_id,0);}.bind(this));
 			}else {
-				checkRequests(0,0);
+		                kh.createInstance("apiAItems").getCure(1, 10).then(function(e) {info.cure_items = e.body;checkRequests(0,0);}.bind(this));
 			}
 		} else if (has(info,"union_raids")){
 			var firstUnionQuest = info.union_raids.data.filter(function ( obj ) {  return obj.type === "event_union_lilim_raid";})[0];
