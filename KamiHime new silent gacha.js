@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         KamiHime new silent gacha
 // @namespace    http://tampermonkey.net/
-// @version      11.05.2018
+// @version      15.05.2018
 // @description  auto gacha in Kamihime game
 // @author       You
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
@@ -16,6 +16,7 @@
 //to use script without errors deactivate auto start script, activate this script and go to weapon inventory
 //look into console for progress -  F12, console
 var sell_R_Eidolons = false;
+var sell_R_enchantment_weapons = false;
 
 var firstBatch;
 
@@ -88,7 +89,7 @@ function saleWeapons(){
                                                                        var sellList = [];
                                                                        var ids = [];
                                                                        list.data.forEach(function(item){
-                                                                           {if (item.rare === "N" && item.bonus === 0 && !item.is_equipped && !item.is_locked) {
+                                                                           {if ((item.rare === "N" || (item.rare === "R" && sell_R_enchantment_weapons && item.attack === 8)) && item.bonus === 0 && !item.is_equipped && !item.is_locked) {
                                                                                ids.push(item.a_weapon_id);
                                                                                sellList.push(item);
                                                                            }}
