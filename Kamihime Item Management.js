@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kamihime Item Management
 // @namespace    https://github.com/Warsen/KamiHime-scripts
-// @version      0.2
+// @version      0.3
 // @description  Manages your weapons and eidolons for you.
 // @author       Warsen
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
@@ -12,10 +12,18 @@
 
 // Task List
 // If the scripts are added to a chrome extension, get options from an existing source.
-var optionTasks = [0, 1, 3, 4];
+var optionTasks = [2, 0, 1, 4];
+// 0 - Level Weapons
+// 1 - Level Eidolons
+// 2 - Skill Weapons
+// 3 - Skill Grails
+// 4 - Sell tems
+
 var optionLevelSRWeapons = true;
 var optionLevelSREidolons = true;
 var optionSkillSRWeapons = false;
+var optionSellCherubWeapons = false; // Not Implemented Yet
+var optionSellREidolons = false; // Not Implemented Yet
 
 var khWeaponsApi;
 var khSummonsApi;
@@ -52,6 +60,8 @@ async function khLoadingAsync()
 	for (let index of optionTasks) {
 		await scripts[index]();
 	}
+
+	console.log("Completed tasks");
 }
 
 async function scriptLevelWeaponsAsync()
@@ -393,6 +403,324 @@ async function checkAndLevelFirstEidolon(eidolons, materials)
 
 async function scriptSkillWeaponsAsync()
 {
+	let ssrWeapons = [];
+	let srWeapons = [];
+	let srMaterials = [];
+	let rMaterials = [];
+	let srGrails = [];
+	let rGrails = [];
+
+	if (!khWeaponsList) {
+		khWeaponsList = await getWeaponListAsync();
+	}
+
+	for (let weapon of khWeaponsList)
+	{
+		if (weapon.rare === "SSR" && weapon.level > 1)
+		{
+			ssrWeapons.push(weapon);
+		}
+		else if (weapon.rare === "SR" && weapon.level > 1 && (weapon.is_equipped || weapon.is_locked))
+		{
+			srWeapons.push(weapon);
+		}
+		else if (weapon.rare === "SR" && weapon.bonus === 0 && weapon.level === 1 && !weapon.is_equipped && !weapon.is_locked && weapon.attack > 150)
+		{
+			srMaterials.push(weapon);
+		}
+		else if (weapon.rare === "R" && weapon.bonus === 0 && weapon.level === 1 && !weapon.is_equipped && !weapon.is_locked && weapon.attack > 100)
+		{
+			rMaterials.push(weapon);
+		}
+		else if (weapon.rare === "SR" && weapon.bonus === 0 && !weapon.is_equipped && !weapon.is_locked && weapon.name === "False Grail Yaldabaoth")
+		{
+			srGrails.push(weapon);
+		}
+		else if (weapon.rare === "R" && weapon.bonus === 0 && !weapon.is_equipped && !weapon.is_locked && weapon.name === "Arcane Grail")
+		{
+			rGrails.push(weapon);
+		}
+	}
+
+	if (rMaterials.length > 0)
+	{
+		// Get skill information for each weapon.
+		console.log("Getting SSR weapon skill information. Please wait...");
+		for (let i = 0; i < ssrWeapons.length; i++) {
+			ssrWeapons[i] = await getWeaponDetailsAsync(ssrWeapons[i]);
+		}
+
+		// Get grail skill levels and filter them.
+		let temp = [...Array(21)].map(_ => []);
+		for (let grail of rGrails)
+		{
+			grail = await getWeaponDetailsAsync(grail);
+			temp[grail.skills[0].level].push(grail);
+		}
+		rGrails = temp;
+
+		temp = [...Array(21)].map(_ => []);
+		for (let grail of srGrails)
+		{
+			grail = await getWeaponDetailsAsync(grail);
+			temp[grail.skills[0].level].push(grail);
+		}
+		srGrails = temp;
+
+		ssrWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level); // Sort by skill level (ascending)
+		while (ssrWeapons.length > 0)
+		{
+			if (ssrWeapons[0].skills[0].level === 1)
+			{
+				if (rMaterials.length >= 2)
+				{
+					ssrWeapons[0] = await enhanceWeaponAsync(ssrWeapons[0], rMaterials.splice(0, 2));
+					ssrWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else
+				{
+					break;
+				}
+			}
+			else if (ssrWeapons[0].skills[0].level === 2)
+			{
+				if (rMaterials.length >= 4)
+				{
+					ssrWeapons[0] = await enhanceWeaponAsync(ssrWeapons[0], rMaterials.splice(0, 4));
+					ssrWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else
+				{
+					break;
+				}
+			}
+			else if (ssrWeapons[0].skills[0].level === 3)
+			{
+				if (rGrails[3].length >= 1)
+				{
+					ssrWeapons[0] = await enhanceWeaponAsync(ssrWeapons[0], rGrails[3].splice(0, 1));
+					ssrWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else if (rGrails[2].length >= 1 && rMaterials.length >= 1)
+				{
+					rGrails[2][0] = await enhanceWeaponAsync(rGrails[2][0], rMaterials.splice(0, 1));
+					ssrWeapons[0] = await enhanceWeaponAsync(ssrWeapons[0], rGrails[2].splice(0, 1));
+					ssrWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else if (rGrails[1].length >= 1 && rMaterials.length >= 2)
+				{
+					rGrails[1][0] = await enhanceWeaponAsync(rGrails[1][0], rMaterials.splice(0, 1));
+					rGrails[1][0] = await enhanceWeaponAsync(rGrails[1][0], rMaterials.splice(0, 1));
+					ssrWeapons[0] = await enhanceWeaponAsync(ssrWeapons[0], rGrails[1].splice(0, 1));
+					ssrWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				if (rMaterials.length >= 6)
+				{
+					ssrWeapons[0] = await enhanceWeaponAsync(ssrWeapons[0], rMaterials.splice(0, 6));
+					ssrWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else
+				{
+					break;
+				}
+			}
+			else if (ssrWeapons[0].skills[0].level === 4)
+			{
+				if (srMaterials.length >= 1 && rMaterials.length >= 2)
+				{
+					srMaterials[0] = await enhanceWeaponAsync(srMaterials[0], rMaterials.splice(0, 1));
+					ssrWeapons[0] = await enhanceWeaponAsync(ssrWeapons[0], [...srMaterials.splice(0, 1), ...rMaterials.splice(0, 1)]);
+					ssrWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else
+				{
+					break;
+				}
+			}
+			else if (ssrWeapons[0].skills[0].level === 5)
+			{
+				if (srMaterials.length >= 1 && rMaterials.length >= 3)
+				{
+					srMaterials[0] = await enhanceWeaponAsync(srMaterials[0], rMaterials.splice(0, 1));
+					srMaterials[0] = await enhanceWeaponAsync(srMaterials[0], rMaterials.splice(0, 2));
+					ssrWeapons[0] = await enhanceWeaponAsync(ssrWeapons[0], srMaterials.splice(0, 1));
+					ssrWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else
+				{
+					break;
+				}
+			}
+			else if (ssrWeapons[0].skills[0].level === 6)
+			{
+				// TODO: By growing complexity, we need a function to auto-skill grails.
+				if (rGrails[3].length >= 2)
+				{
+					ssrWeapons[0] = await enhanceWeaponAsync(ssrWeapons[0], rGrails[3].splice(0, 2));
+					ssrWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				if (srMaterials.length >= 1 && rMaterials.length >= 5)
+				{
+					srMaterials[0] = await enhanceWeaponAsync(srMaterials[0], rMaterials.splice(0, 1));
+					srMaterials[0] = await enhanceWeaponAsync(srMaterials[0], rMaterials.splice(0, 2));
+					ssrWeapons[0] = await enhanceWeaponAsync(ssrWeapons[0], [...srMaterials.splice(0, 1), ...rMaterials.splice(0, 2)]);
+					ssrWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else
+				{
+					break;
+				}
+			}
+			else if (ssrWeapons[0].skills[0].level > 6)
+			{
+				console.log("All SSR weapons are above 6...");
+				break;
+			}
+			else
+			{
+				ssrWeapons.shift();
+			}
+		}
+	}
+
+	if (rMaterials.length > 0 && optionSkillSRWeapons)
+	{
+		// Get skill information for each weapon.
+		console.log("Getting SR weapon skill information. Please wait...");
+		for (let i = 0; i < srWeapons.length; i++) {
+			srWeapons[i] = await getWeaponDetailsAsync(srWeapons[i]);
+		}
+
+		srWeapons.sort((a, b) => a.level - b.level); // Sort by level (ascending)
+		while (srWeapons.length > 0)
+		{
+			if (srWeapons[0].skills[0].level === 1)
+			{
+				if (rMaterials.length >= 1)
+				{
+					srWeapons[0] = await enhanceWeaponAsync(srWeapons[0], rMaterials.splice(0, 1));
+					srWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else
+				{
+					break;
+				}
+			}
+			else if (srWeapons[0].skills[0].level === 2)
+			{
+				if (rMaterials.length >= 2)
+				{
+					srWeapons[0] = await enhanceWeaponAsync(srWeapons[0], rMaterials.splice(0, 2));
+					srWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else
+				{
+					break;
+				}
+			}
+			else if (srWeapons[0].skills[0].level === 3)
+			{
+				if (rMaterials.length >= 3)
+				{
+					srWeapons[0] = await enhanceWeaponAsync(srWeapons[0], rMaterials.splice(0, 3));
+					srWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else
+				{
+					break;
+				}
+			}
+			else if (srWeapons[0].skills[0].level === 4)
+			{
+				if (rMaterials.length >= 4)
+				{
+					srWeapons[0] = await enhanceWeaponAsync(srWeapons[0], rMaterials.splice(0, 4));
+					srWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else
+				{
+					break;
+				}
+			}
+			else if (srWeapons[0].skills[0].level === 5)
+			{
+				if (rMaterials.length >= 5)
+				{
+					srWeapons[0] = await enhanceWeaponAsync(srWeapons[0], rMaterials.splice(0, 5));
+					srWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else
+				{
+					break;
+				}
+			}
+			else if (srWeapons[0].skills[0].level === 6)
+			{
+				if (rGrails[3].length >= 1)
+				{
+					srWeapons[0] = await enhanceWeaponAsync(srWeapons[0], rGrails[3].splice(0, 1));
+					srWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else if (rGrails[2].length >= 1 && rMaterials.length >= 1)
+				{
+					rGrails[2][0] = await enhanceWeaponAsync(rGrails[2][0], rMaterials.splice(0, 1));
+					srWeapons[0] = await enhanceWeaponAsync(srWeapons[0], rGrails[2].splice(0, 1));
+					srWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else if (rGrails[1].length >= 1 && rMaterials.length >= 2)
+				{
+					rGrails[1][0] = await enhanceWeaponAsync(rGrails[1][0], rMaterials.splice(0, 1));
+					rGrails[1][0] = await enhanceWeaponAsync(rGrails[1][0], rMaterials.splice(0, 1));
+					srWeapons[0] = await enhanceWeaponAsync(srWeapons[0], rGrails[1].splice(0, 1));
+					srWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				if (rMaterials.length >= 6)
+				{
+					srWeapons[0] = await enhanceWeaponAsync(srWeapons[0], rMaterials.splice(0, 6));
+					srWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else
+				{
+					break;
+				}
+			}
+			else if (srWeapons[0].skills[0].level === 7)
+			{
+				if (srMaterials.length >= 1 && rMaterials.length >= 1)
+				{
+					srMaterials[0] = await enhanceWeaponAsync(srMaterials[0], rMaterials.splice(0, 1));
+					srWeapons[0] = await enhanceWeaponAsync(srWeapons[0], srMaterials.splice(0, 1));
+					srWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else
+				{
+					break;
+				}
+			}
+			else if (srWeapons[0].skills[0].level === 8)
+			{
+				if (srMaterials.length >= 1 && rMaterials.length >= 2)
+				{
+					srMaterials[0] = await enhanceWeaponAsync(srMaterials[0], rMaterials.splice(0, 1));
+					srWeapons[0] = await enhanceWeaponAsync(srWeapons[0], [...srMaterials.splice(0, 1), ...rMaterials.splice(0, 1)]);
+					srWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
+				}
+				else
+				{
+					break;
+				}
+			}
+			else if (srWeapons[0].skills[0].level > 8)
+			{
+				console.log("All SR weapons are above 8...");
+				break;
+			}
+			else
+			{
+				ssrWeapons.shift();
+			}
+		}
+	}
 }
 
 async function scriptSkillGrailsAsync()
