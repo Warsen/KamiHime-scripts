@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kamihime Item Management
 // @namespace    https://github.com/Warsen/KamiHime-scripts
-// @version      0.1
+// @version      0.2
 // @description  Manages your weapons and eidolons for you.
 // @author       Warsen
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
@@ -12,8 +12,9 @@
 
 // Task List
 // If the scripts are added to a chrome extension, get options from an existing source.
-var optionTasks = [0, 3, 4];
+var optionTasks = [0, 1, 3, 4];
 var optionLevelSRWeapons = true;
+var optionLevelSREidolons = true;
 var optionSkillSRWeapons = false;
 
 var khWeaponsApi;
@@ -137,10 +138,11 @@ async function scriptLevelWeaponsAsync()
 		}
 	}
 }
+
 async function checkAndLevelFirstWeapon(weapons, materials)
 {
 	// Estimate required exp until max level.
-	// Needs a leveling chart to be more precise.
+	// Needs a leveling chart to be accurate.
 	let expToMax = weapons[0].next_exp;
 	for (let i = weapons[0].level + 2; i <= weapons[0].max_level; i++)
 	{
@@ -211,12 +213,188 @@ async function checkAndLevelFirstWeapon(weapons, materials)
 		weapons.shift();
 	}
 }
+
 async function scriptLevelEidolonsAsync()
 {
+	let ssrEidolons = [];
+	let srEidolons = [];
+	let srMaterials = {};
+	let rMaterials2 = {};
+	let rMaterials1 = {};
+	let nMaterials = {};
+
+	if (!khEidolonsList) {
+		khEidolonsList = await getEidolonListAsync();
+	}
+
+	for (let eidolon of khEidolonsList)
+	{
+		if (eidolon.rare === "SSR" && eidolon.level < eidolon.max_level && eidolon.level > 1)
+		{
+			ssrEidolons.push(eidolon);
+		}
+		else if (eidolon.rare === "SR" && eidolon.level < eidolon.max_level && eidolon.level > 1)
+		{
+			srEidolons.push(eidolon);
+		}
+		else if (eidolon.rare === "SR" && eidolon.bonus === 0 && eidolon.level === 1 && !eidolon.is_equipped && !eidolon.is_locked && eidolon.attack === 12)
+		{
+			srMaterials[eidolon.element_type] = srMaterials[eidolon.element_type] || [];
+			srMaterials[eidolon.element_type].push(eidolon);
+		}
+		else if (eidolon.rare === "R" && eidolon.bonus === 0 && eidolon.level === 1 && !eidolon.is_equipped && !eidolon.is_locked && eidolon.attack === 6)
+		{
+			rMaterials2[eidolon.element_type] = rMaterials2[eidolon.element_type] || [];
+			rMaterials2[eidolon.element_type].push(eidolon);
+		}
+		else if (eidolon.rare === "R" && eidolon.bonus === 0 && eidolon.level === 1 && !eidolon.is_equipped && !eidolon.is_locked && eidolon.attack > 6)
+		{
+			rMaterials1[eidolon.element_type] = rMaterials1[eidolon.element_type] || [];
+			rMaterials1[eidolon.element_type].push(eidolon);
+		}
+		else if (eidolon.rare === "N" && eidolon.bonus === 0 && eidolon.level === 1 && !eidolon.is_equipped && !eidolon.is_locked)
+		{
+			nMaterials[eidolon.element_type] = nMaterials[eidolon.element_type] || [];
+			nMaterials[eidolon.element_type].push(eidolon);
+		}
+	}
+
+	ssrEidolons.sort((a, b) => a.level - b.level); // Sort by level (ascending)
+	while (ssrEidolons.length > 0)
+	{
+		if (nMaterials[ssrEidolons[0].element_type] && nMaterials[ssrEidolons[0].element_type].length > 0)
+		{
+			await checkAndLevelFirstEidolon(ssrEidolons, nMaterials[ssrEidolons[0].element_type]);
+		}
+		else if (rMaterials1[ssrEidolons[0].element_type] && rMaterials1[ssrEidolons[0].element_type].length > 0)
+		{
+			await checkAndLevelFirstEidolon(ssrEidolons, rMaterials1[ssrEidolons[0].element_type]);
+		}
+		else if (rMaterials2[ssrEidolons[0].element_type] && rMaterials2[ssrEidolons[0].element_type].length > 0)
+		{
+			await checkAndLevelFirstEidolon(ssrEidolons, rMaterials2[ssrEidolons[0].element_type]);
+		}
+		else if (srMaterials[ssrEidolons[0].element_type] && srMaterials[ssrEidolons[0].element_type].length > 0)
+		{
+			await checkAndLevelFirstEidolon(ssrEidolons, srMaterials[ssrEidolons[0].element_type]);
+		}
+		else
+		{
+			ssrEidolons.shift();
+		}
+	}
+
+	if (optionLevelSREidolons)
+	{
+		srEidolons.sort((a, b) => a.level - b.level); // Sort by level (ascending)
+		while (srEidolons.length > 0)
+		{
+			if (nMaterials[srEidolons[0].element_type] && nMaterials[srEidolons[0].element_type].length > 0)
+			{
+				await checkAndLevelFirstEidolon(srEidolons, nMaterials[srEidolons[0].element_type]);
+			}
+			else if (rMaterials1[srEidolons[0].element_type] && rMaterials1[srEidolons[0].element_type].length > 0)
+			{
+				await checkAndLevelFirstEidolon(srEidolons, rMaterials1[srEidolons[0].element_type]);
+			}
+			else if (rMaterials2[srEidolons[0].element_type] && rMaterials2[srEidolons[0].element_type].length > 0)
+			{
+				await checkAndLevelFirstEidolon(srEidolons, rMaterials2[srEidolons[0].element_type]);
+			}
+			else if (srMaterials[srEidolons[0].element_type] && srMaterials[srEidolons[0].element_type].length > 0)
+			{
+				await checkAndLevelFirstEidolon(srEidolons, srMaterials[srEidolons[0].element_type]);
+			}
+			else
+			{
+				srEidolons.shift();
+			}
+		}
+	}
 }
+
+async function checkAndLevelFirstEidolon(eidolons, materials)
+{
+	// Estimate required exp until max level.
+	// Needs a leveling chart to be more accurate.
+	let expToMax = eidolons[0].next_exp;
+	for (let i = eidolons[0].level + 2; i <= eidolons[0].max_level; i++)
+	{
+		if (i <= 50) {
+			expToMax += i * 10;
+		} else {
+			expToMax += i * 15;
+		}
+	}
+
+	// Half the target exp to allow super success.
+	expToMax = Math.floor(expToMax / 2);
+
+	// Determine how much exp can be gained from materials.
+	let useCount = 0;
+	let useExpGain = 0;
+	while (useCount < 20 && useCount < materials.length && useExpGain < expToMax)
+	{
+		if (materials[useCount].rare === "N")
+		{
+			useExpGain += (eidolons[0].element_type === materials[useCount].element_type) ? 15 : 10;
+			useCount++;
+		}
+		else if (materials[useCount].rare === "R" && materials[useCount].attack > 6)
+		{
+			useExpGain += (eidolons[0].element_type === materials[useCount].element_type) ? 98 : 65;
+			useCount++;
+		}
+		else if (materials[useCount].rare === "R")
+		{
+			if (expToMax - useExpGain >= 75)
+			{
+				useExpGain += (eidolons[0].element_type === materials[useCount].element_type) ? 150 : 100;
+				useCount++;
+			}
+			else
+			{
+				break;
+			}
+		}
+		else if (materials[useCount].rare === "SR")
+		{
+			if (expToMax - useExpGain >= 500)
+			{
+				useExpGain += (eidolons[0].element_type === materials[useCount].element_type) ? 750 : 500;
+				useCount++;
+			}
+			else
+			{
+				break;
+			}
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	if (useCount > 0)
+	{
+		eidolons[0] = await enhanceEidolonAsync(eidolons[0], materials.splice(0, useCount));
+
+		if (eidolons[0].level === eidolons[0].max_level) {
+			eidolons.shift();
+		} else {
+			eidolons.sort((a, b) => a.level - b.level); // Sort by level (ascending)
+		}
+	}
+	else
+	{
+		eidolons.shift();
+	}
+}
+
 async function scriptSkillWeaponsAsync()
 {
 }
+
 async function scriptSkillGrailsAsync()
 {
 	let rGrails = [];
@@ -300,6 +478,7 @@ async function scriptSkillGrailsAsync()
 		}
 	}
 }
+
 async function scriptSellItemsAsync()
 {
 	if (!khWeaponsList) {
@@ -307,7 +486,6 @@ async function scriptSellItemsAsync()
 	}
 
 	let weapons = khWeaponsList.filter(a => a.rare === "N" && a.bonus === 0 && !a.is_equipped && !a.is_locked);
-
 	if (weapons.length > 0) {
 		await sellWeaponsAsync(weapons.slice(0, 20));
 	}
@@ -317,7 +495,6 @@ async function scriptSellItemsAsync()
 	}
 
 	let eidolons = khEidolonsList.filter(a => a.rare === "N" && a.bonus === 0 && !a.is_equipped && !a.is_locked);
-
 	if (eidolons.length > 0) {
 		await sellEidolonsAsync(eidolons.slice(0, 20));
 	}
@@ -376,7 +553,16 @@ async function enhanceEidolonAsync(eidolon, materials)
 	let result = await khSummonsApi.enhance(eidolon.a_summon_id, materials.map(a => a.a_summon_id));
 	khEidolonsList = null; // Invalidate Eidolon List
 
-	console.log(result.body);
+	eidolon = result.body.summon;
+	result = result.body.result;
+	if (result.gained_exp > 0) {
+		console.log(`${eidolon.name} Gained ${result.gained_exp} EXP`);
+	}
+	if (result.before.level < result.after.level) {
+		console.log(`${eidolon.name} Gained ${result.after.level - result.before.level} Levels (${result.before.level} -> ${result.after.level})`);
+	}
+
+	return eidolon;
 }
 async function sellEidolonsAsync(eidolons)
 {
