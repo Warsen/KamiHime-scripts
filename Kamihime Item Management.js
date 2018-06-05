@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kamihime Item Management
 // @namespace    https://github.com/Warsen/KamiHime-scripts
-// @version      0.4
+// @version      0.5
 // @description  Manages your weapons and eidolons for you.
 // @author       Warsen
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
@@ -28,12 +28,13 @@ var optionSellREidolons = false;
 var khWeaponsApi;
 var khSummonsApi;
 var khGachaApi;
+var khRouter;
 
 // These lists can be cached or invalidated between tasks.
 var khWeaponsList = null;
 var khEidolonsList = null;
 
-async function khLoadingAsync()
+async function khInjectionAsync()
 {
 	// Waits for the game to finish loading
 	while (!has(cc, "director", "_runningScene", "_seekWidgetByName") && !has(kh, "createInstance")) {
@@ -44,7 +45,27 @@ async function khLoadingAsync()
 	khWeaponsApi = kh.createInstance("apiAWeapons");
 	khSummonsApi = kh.createInstance("apiASummons");
 	khGachaApi = kh.createInstance("apiAGacha");
+	khRouter = kh.createInstance("router");
 
+	// Inject our own code into navigation.
+	var _navigate = kh.Router.prototype.navigate;
+	kh.Router.prototype.navigate = function(destination) {
+		_navigate.apply(this, arguments);
+
+		console.log(destination);
+		if (destination == "gacha/ga_004")
+		{
+			setTimeout(scriptDrawGachaAsync, 1000);
+		}
+		else if (destination == "enh_evo/enh_001")
+		{
+			setTimeout(doOptionsTasks, 1000);
+		}
+	};
+}
+
+async function doOptionsTasks()
+{
 	let scripts = [
 		scriptLevelWeaponsAsync,
 		scriptLevelEidolonsAsync,
@@ -53,15 +74,21 @@ async function khLoadingAsync()
 		scriptSellItemsAsync
 	];
 
-	// Wait 3 seconds before performing scripts to avoid errors.
-	await new Promise(resolve => setTimeout(resolve, 3000));
-
-	// Execute the defined tasks from the list of scripts.
-	for (let index of optionTasks) {
+	for (let index of optionTasks)
+	{
 		await scripts[index]();
 	}
 
 	console.log("Completed tasks");
+}
+
+async function scriptDrawGachaAsync()
+{
+	let gachaInfo = await getGachaInfoAsync();
+
+	if (gachaInfo.groups.length >= 1)
+	{
+	}
 }
 
 async function scriptLevelWeaponsAsync()
@@ -763,6 +790,15 @@ async function scriptSellItemsAsync()
 	}
 }
 
+async function getGachaInfoAsync()
+{
+	let result = await khGachaApi.getCategory("normal");
+
+	console.log("Gacha Info:");
+	console.log(result.body);
+
+	return result.body;
+}
 async function getWeaponListAsync()
 {
 	let result = await khWeaponsApi.getList(0, 500);
@@ -855,4 +891,4 @@ function has(obj)
 	return true;
 }
 
-khLoadingAsync();
+khInjectionAsync();
