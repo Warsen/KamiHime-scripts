@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kamihime Item Management
 // @namespace    https://github.com/Warsen/KamiHime-scripts
-// @version      0.5
+// @version      0.6
 // @description  Manages your weapons and eidolons for you.
 // @author       Warsen
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
@@ -34,14 +34,16 @@ var khRouter;
 var khWeaponsList = null;
 var khEidolonsList = null;
 
+var interrupt = false;
+
 async function khInjectionAsync()
 {
-	// Waits for the game to finish loading
+	// Wait for the game to finish loading.
 	while (!has(cc, "director", "_runningScene", "_seekWidgetByName") && !has(kh, "createInstance")) {
 		await new Promise(resolve => setTimeout(resolve, 1000));
 	}
 
-	// Create instances of the various APIs
+	// Create instances of the various APIs.
 	khWeaponsApi = kh.createInstance("apiAWeapons");
 	khSummonsApi = kh.createInstance("apiASummons");
 	khGachaApi = kh.createInstance("apiAGacha");
@@ -52,19 +54,17 @@ async function khInjectionAsync()
 	kh.Router.prototype.navigate = function(destination) {
 		_navigate.apply(this, arguments);
 
-		console.log(destination);
-		if (destination == "gacha/ga_004")
-		{
+		interrupt = true;
+
+		if (destination == "gacha/ga_004") {
 			setTimeout(scriptDrawGachaAsync, 1000);
-		}
-		else if (destination == "enh_evo/enh_001")
-		{
-			setTimeout(doOptionsTasks, 1000);
+		} else if (destination == "enh_evo/enh_001") {
+			setTimeout(doOptionsTasksAsync, 1000);
 		}
 	};
 }
 
-async function doOptionsTasks()
+async function doOptionsTasksAsync()
 {
 	let scripts = [
 		scriptLevelWeaponsAsync,
@@ -84,10 +84,36 @@ async function doOptionsTasks()
 
 async function scriptDrawGachaAsync()
 {
-	let gachaInfo = await getGachaInfoAsync();
-
-	if (gachaInfo.groups.length >= 1)
+	interrupt = false;
+	while (!interrupt)
 	{
+		let gachaInfo = await getGachaInfoAsync();
+
+		if (gachaInfo.is_max_weapon_or_summon)
+		{
+			await doOptionsTasksAsync();
+		}
+		else if (gachaInfo.groups.length >= 2 && gachaInfo.groups[1].enabled)
+		{
+			 if (gachaInfo.groups[1].gacha_count != 10)
+			 {
+				await doOptionsTasksAsync();
+			 }
+			 else
+			 {
+				await playGachaAsync(gachaInfo.groups[1].gacha_id);
+			 }
+		}
+		else if (gachaInfo.groups.length >= 1 && gachaInfo.groups[0].enabled)
+		{
+			await playGachaAsync(gachaInfo.groups[0].gacha_id);
+		}
+		else
+		{
+			await doOptionsTasksAsync();
+			console.log("All gem gacha attempts are used");
+			return;
+		}
 	}
 }
 
@@ -772,7 +798,7 @@ async function scriptSellItemsAsync()
 	}
 	while (weapons.length > 0)
 	{
-		await sellWeaponsAsync(weapons.slice(0, 20));
+		await sellWeaponsAsync(weapons.splice(0, 20));
 	}
 
 	if (!khEidolonsList) {
@@ -786,7 +812,7 @@ async function scriptSellItemsAsync()
 	}
 	while (eidolons.length > 0)
 	{
-		await sellEidolonsAsync(eidolons.slice(0, 20));
+		await sellEidolonsAsync(eidolons.splice(0, 20));
 	}
 }
 
@@ -794,8 +820,13 @@ async function getGachaInfoAsync()
 {
 	let result = await khGachaApi.getCategory("normal");
 
-	console.log("Gacha Info:");
-	console.log(result.body);
+	return result.body;
+}
+async function playGachaAsync(gacha_id)
+{
+	let result = await khGachaApi.playGacha("normal", gacha_id);
+
+	console.log(`Gacha: Obtained ${result.body.obtained_info.length} Items`);
 
 	return result.body;
 }
