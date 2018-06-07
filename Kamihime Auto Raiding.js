@@ -42,6 +42,14 @@ optionSupporterSorts.push((a, b) => b.summon_info.level - a.summon_info.level);
 // If you want to exit automatic navigation, this gives you extra time to do it.
 var optionWaitAtAcquisitions = 5000;
 
+// Milliseconds to wait before joining a found raid.
+// A player takes typically 7 seconds to view the supporters list and pick
+// one, longer if they had to use energy seeds. The first number is always
+// applied. The second number is an upper limit of additional random time
+// to wait. Used to make others think you took some variable time to join.
+var optionWaitBeforeJoiningRaidbattle = 5000;
+var optionWaitBeforeJoiningRaidbattleRandom = 3000;
+
 // Milliseconds to wait between checks for raid requests.
 // The game doesn't normally allow you to refresh when checking for raid requests
 // and raids don't disappear very quickly, so please wait at least 20 seconds.
@@ -185,18 +193,23 @@ async function scriptAutoRaidBattle()
 					supporters.sort(sort);
 				}
 
-				let summon_id = supporters[0].summon_info.a_summon_id;
+				if (optionWaitBeforeJoiningRaidbattle)
+				{
+					let t = optionWaitBeforeJoiningRaidbattle + Math.floor((Math.random() * optionWaitBeforeJoiningRaidbattleRandom));
+					console.log("Found a suitable raid request. Waiting ", t / 1000, " seconds...");
+					await delay(t);
+				}
 
 				if (await joinRaidBattleAsync(
 					profile.a_player_id,
 					request.a_battle_id,
-					summon_id,
+					supporters[0].summon_info.a_summon_id,
 					profile.selected_party.a_party_id,
 					request.quest_type
 				)) return;
 			}
 
-			console.log("Did not find a suitable raid request. Waiting...");
+			console.log("Did not find a suitable raid request. Waiting ", optionWaitBetweenRaidRequestChecks / 1000, " seconds...");
 			await delay(optionWaitBetweenRaidRequestChecks);
 		}
 	}
