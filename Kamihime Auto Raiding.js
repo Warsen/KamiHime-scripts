@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kamihime Auto Raiding
 // @namespace    https://github.com/Warsen/KamiHime-scripts
-// @version      0.2
+// @version      0.3
 // @description  Automatically joins raid battles for you. Wait at the raid listing page.
 // @author       Warsen
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
@@ -199,6 +199,8 @@ async function scriptAutoRaidBattle()
 					console.log("Found a suitable raid request. Waiting ", t / 1000, " seconds...");
 					await delay(t);
 				}
+
+				if (scriptInterrupt) return;
 
 				if (await joinRaidBattleAsync(
 					profile.a_player_id,
