@@ -45,7 +45,7 @@ var optionWaitAtAcquisitions = 5000;
 // Milliseconds to wait before joining a found raid.
 // A player takes typically 7 seconds to view the supporters list and pick
 // one, longer if they had to use energy seeds. The first number is always
-// applied. The second number is an upper limit of additional random time
+// waited. The second number is an upper limit of additional random time
 // to wait. Used to make others think you took some variable time to join.
 var optionWaitBeforeJoiningRaidbattle = 5000;
 var optionWaitBeforeJoiningRaidbattleRandom = 3000;
@@ -94,7 +94,7 @@ async function khInjectionAsync()
 		scriptInterrupt = true;
 
 		if (destination == "quest/q_006") {
-			setTimeout(scriptAutoRaidBattle, 3000);
+			setTimeout(scriptAutoRaidBattleAsync, 3000);
 		}
 	};
 
@@ -119,11 +119,11 @@ async function khInjectionAsync()
 	if (location.hash.startsWith("#!quest/q_006"))
 	{
 		await delay(3000);
-		await scriptAutoRaidBattle();
+		await scriptAutoRaidBattleAsync();
 	}
 }
 
-async function scriptAutoRaidBattle()
+async function scriptAutoRaidBattleAsync()
 {
 	let profile = await getMyProfileAsync();
 	let questInfo = await getQuestInfoAsync();
@@ -181,8 +181,12 @@ async function scriptAutoRaidBattle()
 
 			for (let request of requests)
 			{
-				if (request.battle_bp > qp.bp) {
-					await useRestoreBPAsync(request.battle_bp - qp.bp);
+				if (optionWaitBeforeJoiningRaidbattle)
+				{
+					let calcWaitTime = optionWaitBeforeJoiningRaidbattle + Math.ceil((Math.random() * optionWaitBeforeJoiningRaidbattleRandom));
+					console.log("Found a suitable raid request. Waiting", calcWaitTime / 1000, "seconds...");
+					await delay(calcWaitTime);
+					if (scriptInterrupt) return;
 				}
 
 				let supporters = await getSupporterListAsync(request.recommended_element_type);
@@ -193,25 +197,28 @@ async function scriptAutoRaidBattle()
 					supporters.sort(sort);
 				}
 
-				if (optionWaitBeforeJoiningRaidbattle)
+				if (request.battle_bp > qp.bp)
 				{
-					let t = optionWaitBeforeJoiningRaidbattle + Math.floor((Math.random() * optionWaitBeforeJoiningRaidbattleRandom));
-					console.log("Found a suitable raid request. Waiting ", t / 1000, " seconds...");
-					await delay(t);
+					let isBpRestored = await useRestoreBPAsync(request.battle_bp - qp.bp);
+					if (!isBpRestored)
+					{
+						console.log("Not enough energy leafs or seeds. Ending...");
+						return;
+					}
 				}
 
-				if (scriptInterrupt) return;
-
-				if (await joinRaidBattleAsync(
+				let isBattleJoined = await joinRaidBattleAsync(
 					profile.a_player_id,
 					request.a_battle_id,
 					supporters[0].summon_info.a_summon_id,
 					profile.selected_party.a_party_id,
 					request.quest_type
-				)) return;
+				);
+
+				if (isBattleJoined) return;
 			}
 
-			console.log("Did not find a suitable raid request. Waiting ", optionWaitBetweenRaidRequestChecks / 1000, " seconds...");
+			console.log("Did not find a suitable raid request. Waiting", optionWaitBetweenRaidRequestChecks / 1000, "seconds...");
 			await delay(optionWaitBetweenRaidRequestChecks);
 		}
 	}
