@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kamihime Auto Raiding
 // @namespace    https://github.com/Warsen/KamiHime-scripts
-// @version      0.3
+// @version      0.4
 // @description  Automatically joins raid battles for you. Wait at the raid listing page.
 // @author       Warsen
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
@@ -10,8 +10,13 @@
 // @run-at       document-end
 // ==/UserScript==
 
-// Ends the script when you have no BP to use.
-var optionEndWithNoBP = false;
+// Auto raiding runs when you go to Check Battles/Raid Boss Available.
+// Auto raiding also runs immediately after you finish ANY battle by moving
+// you from the results screens on to Check Battles/Raid Boss Available.
+// You can exit the loop at the results screens or if a battle isn't found.
+
+// Ends the script when you have 0 BP remaining.
+var optionEndWithZeroBP = false;
 
 // Filter functions to be used in filtering raid requests.
 // Ignores raid requests that do not meet the following conditions.
@@ -60,11 +65,10 @@ let khQuestInfoApi;
 let khQuestsApi;
 let khBattlesApi;
 let khItemsApi;
-let khWeaponsApi;
 let khSummonsApi;
-let khGachaApi;
 let khQuestStateManager;
 let khRouter;
+let khNavigate;
 let scriptInterrupt;
 
 async function khInjectionAsync()
@@ -80,30 +84,34 @@ async function khInjectionAsync()
 	khQuestsApi = kh.createInstance("apiAQuests");
 	khBattlesApi = kh.createInstance("apiABattles");
 	khItemsApi = kh.createInstance("apiAItems");
-	khWeaponsApi = kh.createInstance("apiAWeapons");
 	khSummonsApi = kh.createInstance("apiASummons");
-	khGachaApi = kh.createInstance("apiAGacha");
 	khQuestStateManager = kh.createInstance("questStateManager");
 	khRouter = kh.createInstance("router");
+	scriptInterrupt = true;
 
 	// Inject our own code into navigation.
-	khRouter.navigate2 = kh.Router.prototype.navigate;
+	let _navigate = kh.Router.prototype.navigate;
 	kh.Router.prototype.navigate = function(destination) {
-		khRouter.navigate2.apply(this, arguments);
+		_navigate.apply(this, arguments);
 
-		scriptInterrupt = true;
-
-		if (destination == "quest/q_006") {
+		if (destination == "quest/q_006")
+		{
+			scriptInterrupt = !scriptInterrupt;
 			setTimeout(scriptAutoRaidBattleAsync, 3000);
 		}
+		else
+		{
+			scriptInterrupt = true;
+		}
 	};
+	khNavigate = _navigate.bind(khRouter);
 
 	// If at the results screen, go to the raid requests screen.
 	if (location.hash.startsWith("#!quest/q_003_1"))
 	{
 		await delay(8000);
 		if (location.hash.startsWith("#!quest/q_003_1")) {
-			khRouter.navigate2("quest/q_003_2");
+			khNavigate("quest/q_003_2");
 		}
 	}
 	if (location.hash.startsWith("#!quest/q_003_2"))
@@ -113,12 +121,13 @@ async function khInjectionAsync()
 			await delay(optionWaitAtAcquisitions);
 		}
 		if (location.hash.startsWith("#!quest/q_003_2")) {
-			khRouter.navigate2("quest/q_006");
+			khNavigate("quest/q_006");
 		}
 	}
 	if (location.hash.startsWith("#!quest/q_006"))
 	{
 		await delay(3000);
+		scriptInterrupt = false;
 		await scriptAutoRaidBattleAsync();
 	}
 }
@@ -140,7 +149,7 @@ async function scriptAutoRaidBattleAsync()
 
 	if (questInfo.in_progress.own_raid)
 	{
-		khRouter.navigate2("battle", {
+		khNavigate("battle", {
 			a_battle_id: questInfo.in_progress.own_raid.a_battle_id,
 			a_player_id: profile.a_player_id,
 			a_quest_id: questInfo.in_progress.own_raid.a_quest_id,
@@ -162,12 +171,11 @@ async function scriptAutoRaidBattleAsync()
 	else
 	{
 		let qp = await getQuestPointsAsync();
-		if (optionEndWithNoBP && qp.bp == 0) {
-			console.log("No BP to use. Ending...");
+		if (optionEndWithZeroBP && qp.bp == 0) {
+			console.log("Zero BP remaining. Ending...");
 			return;
 		}
 
-		scriptInterrupt = false;
 		while (!scriptInterrupt)
 		{
 			let requests = await getRaidRequestListAsync();
@@ -298,7 +306,7 @@ async function joinRaidBattleAsync(player_id, battle_id, summon_id, party_id, qu
 		console.log(result.body);
 		return false;
 	}
-	khRouter.navigate2("battle", {
+	khNavigate("battle", {
 		a_battle_id: battle_id,
 		a_player_id: player_id,
 		a_quest_id: result.body.a_quest_id,
