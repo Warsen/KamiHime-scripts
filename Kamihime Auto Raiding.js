@@ -74,7 +74,7 @@ let scriptInterrupt;
 async function khInjectionAsync()
 {
 	// Wait for the game to finish loading.
-	while (!has(cc, "director", "_runningScene", "_seekWidgetByName") && !has(kh, "createInstance")) {
+	while (!has(cc, "director", "_runningScene", "_seekWidgetByName") || !has(kh, "createInstance")) {
 		await delay(1000);
 	}
 
