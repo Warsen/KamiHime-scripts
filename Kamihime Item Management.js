@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kamihime Item Management
 // @namespace    https://github.com/Warsen/KamiHime-scripts
-// @version      0.6
+// @version      0.7
 // @description  Manages your weapons and eidolons for you.
 // @author       Warsen
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
@@ -10,9 +10,13 @@
 // @run-at       document-end
 // ==/UserScript==
 
-// Task List
-// If the scripts are added to a chrome extension, get options from an existing source.
-var optionTasks = [2, 0, 1, 4];
+// Item management runs when you go to Enhance from My Page.
+// Background quick drawing of gachapon starts when you go to Gem Gacha.
+// Item management runs every time background quick drawing of gachapon
+// gets you full inventory.
+
+// Determine what item management will do and in what order.
+var optionTaskList = [2, 0, 1, 4];
 // 0 - Level Weapons
 // 1 - Level Eidolons
 // 2 - Skill Weapons
@@ -29,18 +33,16 @@ var khWeaponsApi;
 var khSummonsApi;
 var khGachaApi;
 var khRouter;
-
-// These lists can be cached or invalidated between tasks.
-var khWeaponsList = null;
-var khEidolonsList = null;
-
-var interrupt = false;
+let khNavigate;
+let scriptInterrupt;
+var cacheWeaponsList;
+var cacheEidolonsList;
 
 async function khInjectionAsync()
 {
 	// Wait for the game to finish loading.
 	while (!has(cc, "director", "_runningScene", "_seekWidgetByName") && !has(kh, "createInstance")) {
-		await new Promise(resolve => setTimeout(resolve, 1000));
+		await delay(1000);
 	}
 
 	// Create instances of the various APIs.
@@ -48,23 +50,40 @@ async function khInjectionAsync()
 	khSummonsApi = kh.createInstance("apiASummons");
 	khGachaApi = kh.createInstance("apiAGacha");
 	khRouter = kh.createInstance("router");
+	scriptInterrupt = true;
 
 	// Inject our own code into navigation.
-	var _navigate = kh.Router.prototype.navigate;
+	let _navigate = kh.Router.prototype.navigate;
 	kh.Router.prototype.navigate = function(destination) {
 		_navigate.apply(this, arguments);
 
-		interrupt = true;
-
-		if (destination == "gacha/ga_004") {
-			setTimeout(scriptDrawGachaAsync, 1000);
-		} else if (destination == "enh_evo/enh_001") {
-			setTimeout(doOptionsTasksAsync, 1000);
+		if (destination == "gacha/ga_004")
+		{
+			scriptInterrupt = !scriptInterrupt;
+			setTimeout(quickDrawGachaAsync, 3000);
+		}
+		else if (destination == "enh_evo/enh_001")
+		{
+			scriptInterrupt = !scriptInterrupt;
+			setTimeout(doOptionTasksAsync, 3000);
+		}
+		else
+		{
+			scriptInterrupt = true;
 		}
 	};
+	khNavigate = _navigate.bind(khRouter);
 }
 
-async function doOptionsTasksAsync()
+async function doOptionTasksAsync()
+{
+	let result = await optionTasksAsync();
+	if (result) {
+		console.log("Completed all tasks. Ending...");
+	}
+}
+
+async function optionTasksAsync()
 {
 	let scripts = [
 		scriptLevelWeaponsAsync,
@@ -74,44 +93,63 @@ async function doOptionsTasksAsync()
 		scriptSellItemsAsync
 	];
 
-	for (let index of optionTasks)
+	if (optionTaskList.length == 0) return false;
+	for (let index of optionTaskList)
 	{
 		await scripts[index]();
+		if (scriptInterrupt) return false;
 	}
-
-	console.log("Completed tasks");
+	return true;
 }
 
-async function scriptDrawGachaAsync()
+async function quickDrawGachaAsync()
 {
-	interrupt = false;
-	while (!interrupt)
-	{
-		let gachaInfo = await getGachaInfoAsync();
+	let gachaInfo = await getGachaInfoAsync();
 
+	while (!scriptInterrupt)
+	{
 		if (gachaInfo.is_max_weapon_or_summon)
 		{
-			await doOptionsTasksAsync();
+			let result = await optionTasksAsync();
+			if (result)
+			{
+				gachaInfo = await getGachaInfoAsync();
+				if (!gachaInfo.is_max_weapon_or_summon) {
+					continue;
+				}
+			}
+			return;
 		}
-		else if (gachaInfo.groups.length >= 2 && gachaInfo.groups[1].enabled)
+
+		if (gachaInfo.groups.length >= 2 && gachaInfo.groups[1].enabled)
 		{
 			 if (gachaInfo.groups[1].gacha_count != 10)
 			 {
-				await doOptionsTasksAsync();
+				let result = await optionTasksAsync();
+				if (result)
+				{
+					gachaInfo = await getGachaInfoAsync();
+					if (gachaInfo.groups[1].gacha_count == 10) {
+						continue;
+					}
+				}
+				return;
 			 }
 			 else
 			 {
 				await playGachaAsync(gachaInfo.groups[1].gacha_id);
+				gachaInfo = await getGachaInfoAsync();
 			 }
 		}
 		else if (gachaInfo.groups.length >= 1 && gachaInfo.groups[0].enabled)
 		{
 			await playGachaAsync(gachaInfo.groups[0].gacha_id);
+			gachaInfo = await getGachaInfoAsync();
 		}
 		else
 		{
-			await doOptionsTasksAsync();
-			console.log("All gem gacha attempts are used");
+			await optionTasksAsync();
+			console.log("All gem gacha attempts are used. Ending...");
 			return;
 		}
 	}
@@ -121,83 +159,78 @@ async function scriptLevelWeaponsAsync()
 {
 	let ssrWeapons = [];
 	let srWeapons = [];
-	let srMaterials = {};
-	let rMaterials = {};
-	let nMaterials = {};
+	let materials = [];
 
-	if (!khWeaponsList) {
-		khWeaponsList = await getWeaponListAsync();
+	if (!cacheWeaponsList) {
+		await getWeaponListAsync();
 	}
 
-	for (let weapon of khWeaponsList)
+	for (let weapon of cacheWeaponsList)
 	{
-		if (weapon.rare == "SSR" && weapon.level < weapon.max_level && weapon.level > 1)
+		if (weapon.rare == "SSR" && weapon.level > 1 && weapon.level < weapon.max_level)
 		{
 			ssrWeapons.push(weapon);
 		}
-		else if (weapon.rare == "SR" && weapon.level < weapon.max_level && weapon.level > 1 && (weapon.is_equipped || weapon.is_locked))
+		else if (weapon.rare == "SR" && weapon.level > 17 && weapon.level < weapon.max_level && (weapon.is_equipped || weapon.is_locked))
 		{
 			srWeapons.push(weapon);
 		}
-		else if (weapon.rare == "SR" && weapon.bonus == 0 && weapon.level == 1 && !weapon.is_equipped && !weapon.is_locked && weapon.attack == 8)
+		else if ((((weapon.rare == "SR" || weapon.rare == "R") && weapon.attack == 8) || weapon.rare == "N") && weapon.bonus == 0 && weapon.level == 1 && !weapon.is_equipped && !weapon.is_locked)
 		{
-			srMaterials[weapon.weapon_type] = srMaterials[weapon.weapon_type] || [];
-			srMaterials[weapon.weapon_type].push(weapon);
-		}
-		else if (weapon.rare == "R" && weapon.bonus == 0 && weapon.level == 1 && !weapon.is_equipped && !weapon.is_locked && weapon.attack == 8)
-		{
-			rMaterials[weapon.weapon_type] = rMaterials[weapon.weapon_type] || [];
-			rMaterials[weapon.weapon_type].push(weapon);
-		}
-		else if (weapon.rare == "N" && weapon.bonus == 0 && weapon.level == 1 && !weapon.is_equipped && !weapon.is_locked)
-		{
-			nMaterials[weapon.weapon_type] = nMaterials[weapon.weapon_type] || [];
-			nMaterials[weapon.weapon_type].push(weapon);
+			materials.push(weapon);
 		}
 	}
 
-	ssrWeapons.sort((a, b) => a.level - b.level); // Sort by level (ascending)
-	while (ssrWeapons.length > 0)
+	if (materials.length > 0)
 	{
-		if (nMaterials[ssrWeapons[0].weapon_type] && nMaterials[ssrWeapons[0].weapon_type].length > 0)
+		let ssrWeapons2 = [];
+		materials.sort((a, b) => a.rare.localeCompare(b.rare)); // Sort by rarity (ascending)
+		ssrWeapons.sort((a, b) => a.level - b.level); // Sort by level (ascending)
+		while (!scriptInterrupt && ssrWeapons.length > 0 && materials.length > 0)
 		{
-			await checkAndLevelFirstWeapon(ssrWeapons, nMaterials[ssrWeapons[0].weapon_type]);
-		}
-		else if (rMaterials[ssrWeapons[0].weapon_type] && rMaterials[ssrWeapons[0].weapon_type].length > 0)
-		{
-			await checkAndLevelFirstWeapon(ssrWeapons, rMaterials[ssrWeapons[0].weapon_type]);
-		}
-		else if (srMaterials[ssrWeapons[0].weapon_type] && srMaterials[ssrWeapons[0].weapon_type].length > 0)
-		{
-			await checkAndLevelFirstWeapon(ssrWeapons, srMaterials[ssrWeapons[0].weapon_type]);
-		}
-		else
-		{
-			ssrWeapons.shift();
-		}
-	}
-
-	if (optionLevelSRWeapons)
-	{
-		srWeapons.sort((a, b) => a.level - b.level); // Sort by level (ascending)
-		while (srWeapons.length > 0)
-		{
-			if (nMaterials[srWeapons[0].weapon_type] && nMaterials[srWeapons[0].weapon_type].length > 0)
+			let filtered = spliceByFilter(materials, a => a.weapon_type == ssrWeapons[0].weapon_type)
+			if (filtered.length > 0)
 			{
-				await checkAndLevelFirstWeapon(srWeapons, nMaterials[srWeapons[0].weapon_type]);
-			}
-			else if (rMaterials[srWeapons[0].weapon_type] && rMaterials[srWeapons[0].weapon_type].length > 0)
-			{
-				await checkAndLevelFirstWeapon(srWeapons, rMaterials[srWeapons[0].weapon_type]);
-			}
-			else if (srMaterials[srWeapons[0].weapon_type] && srMaterials[srWeapons[0].weapon_type].length > 0)
-			{
-				await checkAndLevelFirstWeapon(srWeapons, srMaterials[srWeapons[0].weapon_type]);
+				await checkAndLevelFirstWeapon(ssrWeapons, filtered);
+				if (filtered.length > 0) {
+					materials = materials.concat(filtered);
+				}
 			}
 			else
 			{
-				srWeapons.shift();
+				ssrWeapons2.push(ssrWeapons.shift());
 			}
+		}
+		materials.sort((a, b) => a.rare.localeCompare(b.rare)); // Sort by rarity (ascending)
+		while (!scriptInterrupt && ssrWeapons2.length > 0 && materials.length > 0)
+		{
+			await checkAndLevelFirstWeapon(ssrWeapons2, materials);
+		}
+	}
+
+	if (!scriptInterrupt && materials.length > 0 && optionLevelSRWeapons)
+	{
+		let srWeapons2 = [];
+		srWeapons.sort((a, b) => a.level - b.level); // Sort by level (ascending)
+		while (!scriptInterrupt && srWeapons.length > 0)
+		{
+			let filtered = spliceByFilter(materials, a => a.weapon_type == srWeapons[0].weapon_type)
+			if (filtered.length > 0)
+			{
+				await checkAndLevelFirstWeapon(srWeapons, filtered);
+				if (filtered.length > 0) {
+					materials = materials.concat(filtered);
+				}
+			}
+			else
+			{
+				srWeapons2.push(srWeapons.shift());
+			}
+		}
+		materials.sort((a, b) => a.rare.localeCompare(b.rare)); // Sort by rarity (ascending)
+		while (!scriptInterrupt && srWeapons2.length > 0 && materials.length > 0)
+		{
+			await checkAndLevelFirstWeapon(srWeapons2, materials);
 		}
 	}
 }
@@ -219,7 +252,7 @@ async function checkAndLevelFirstWeapon(weapons, materials)
 	}
 
 	// Half the target exp to allow super success.
-	expToMax = Math.floor(expToMax / 2);
+	expToMax = Math.ceil(expToMax / 2);
 
 	// Determine how much exp can be gained from materials.
 	let useCount = 0;
@@ -281,16 +314,13 @@ async function scriptLevelEidolonsAsync()
 {
 	let ssrEidolons = [];
 	let srEidolons = [];
-	let srMaterials = {};
-	let rMaterials2 = {};
-	let rMaterials1 = {};
-	let nMaterials = {};
+	let materials = [];
 
-	if (!khEidolonsList) {
-		khEidolonsList = await getEidolonListAsync();
+	if (!cacheEidolonsList) {
+		await getEidolonListAsync();
 	}
 
-	for (let eidolon of khEidolonsList)
+	for (let eidolon of cacheEidolonsList)
 	{
 		if (eidolon.rare == "SSR" && eidolon.level < eidolon.max_level && eidolon.level > 1)
 		{
@@ -300,78 +330,62 @@ async function scriptLevelEidolonsAsync()
 		{
 			srEidolons.push(eidolon);
 		}
-		else if (eidolon.rare == "SR" && eidolon.bonus == 0 && eidolon.level == 1 && !eidolon.is_equipped && !eidolon.is_locked && eidolon.attack == 12)
+		else if (((eidolon.rare == "SR" && eidolon.attack == 12) || eidolon.rare == "R" || eidolon.rare == "N") && eidolon.bonus == 0 && eidolon.level == 1 && !eidolon.is_equipped && !eidolon.is_locked)
 		{
-			srMaterials[eidolon.element_type] = srMaterials[eidolon.element_type] || [];
-			srMaterials[eidolon.element_type].push(eidolon);
-		}
-		else if (eidolon.rare == "R" && eidolon.bonus == 0 && eidolon.level == 1 && !eidolon.is_equipped && !eidolon.is_locked && eidolon.attack == 6)
-		{
-			rMaterials2[eidolon.element_type] = rMaterials2[eidolon.element_type] || [];
-			rMaterials2[eidolon.element_type].push(eidolon);
-		}
-		else if (eidolon.rare == "R" && eidolon.bonus == 0 && eidolon.level == 1 && !eidolon.is_equipped && !eidolon.is_locked && eidolon.attack > 6)
-		{
-			rMaterials1[eidolon.element_type] = rMaterials1[eidolon.element_type] || [];
-			rMaterials1[eidolon.element_type].push(eidolon);
-		}
-		else if (eidolon.rare == "N" && eidolon.bonus == 0 && eidolon.level == 1 && !eidolon.is_equipped && !eidolon.is_locked)
-		{
-			nMaterials[eidolon.element_type] = nMaterials[eidolon.element_type] || [];
-			nMaterials[eidolon.element_type].push(eidolon);
+			materials.push(eidolon);
 		}
 	}
 
-	ssrEidolons.sort((a, b) => a.level - b.level); // Sort by level (ascending)
-	while (ssrEidolons.length > 0)
+	if (materials.length > 0)
 	{
-		if (nMaterials[ssrEidolons[0].element_type] && nMaterials[ssrEidolons[0].element_type].length > 0)
+		let ssrEidolons2 = [];
+		materials.sort((a, b) => a.rare.localeCompare(b.rare)); // Sort by rarity (ascending)
+		ssrEidolons.sort((a, b) => a.level - b.level); // Sort by level (ascending)
+		while (!scriptInterrupt && ssrEidolons.length > 0)
 		{
-			await checkAndLevelFirstEidolon(ssrEidolons, nMaterials[ssrEidolons[0].element_type]);
-		}
-		else if (rMaterials1[ssrEidolons[0].element_type] && rMaterials1[ssrEidolons[0].element_type].length > 0)
-		{
-			await checkAndLevelFirstEidolon(ssrEidolons, rMaterials1[ssrEidolons[0].element_type]);
-		}
-		else if (rMaterials2[ssrEidolons[0].element_type] && rMaterials2[ssrEidolons[0].element_type].length > 0)
-		{
-			await checkAndLevelFirstEidolon(ssrEidolons, rMaterials2[ssrEidolons[0].element_type]);
-		}
-		else if (srMaterials[ssrEidolons[0].element_type] && srMaterials[ssrEidolons[0].element_type].length > 0)
-		{
-			await checkAndLevelFirstEidolon(ssrEidolons, srMaterials[ssrEidolons[0].element_type]);
-		}
-		else
-		{
-			ssrEidolons.shift();
-		}
-	}
-
-	if (optionLevelSREidolons)
-	{
-		srEidolons.sort((a, b) => a.level - b.level); // Sort by level (ascending)
-		while (srEidolons.length > 0)
-		{
-			if (nMaterials[srEidolons[0].element_type] && nMaterials[srEidolons[0].element_type].length > 0)
+			let filtered = spliceByFilter(materials, a => a.element_type == ssrEidolons[0].element_type);
+			if (filtered.length > 0)
 			{
-				await checkAndLevelFirstEidolon(srEidolons, nMaterials[srEidolons[0].element_type]);
-			}
-			else if (rMaterials1[srEidolons[0].element_type] && rMaterials1[srEidolons[0].element_type].length > 0)
-			{
-				await checkAndLevelFirstEidolon(srEidolons, rMaterials1[srEidolons[0].element_type]);
-			}
-			else if (rMaterials2[srEidolons[0].element_type] && rMaterials2[srEidolons[0].element_type].length > 0)
-			{
-				await checkAndLevelFirstEidolon(srEidolons, rMaterials2[srEidolons[0].element_type]);
-			}
-			else if (srMaterials[srEidolons[0].element_type] && srMaterials[srEidolons[0].element_type].length > 0)
-			{
-				await checkAndLevelFirstEidolon(srEidolons, srMaterials[srEidolons[0].element_type]);
+				await checkAndLevelFirstEidolon(ssrEidolons, filtered);
+				if (filtered.length > 0) {
+					materials = materials.concat(filtered);
+				}
 			}
 			else
 			{
-				srEidolons.shift();
+				ssrEidolons2.push(ssrEidolons.shift());
 			}
+		}
+		materials.sort((a, b) => a.rare.localeCompare(b.rare)); // Sort by rarity (ascending)
+		while (!scriptInterrupt && ssrEidolons2.length > 0 && materials.length > 0)
+		{
+			await checkAndLevelFirstEidolon(ssrEidolons2, materials);
+		}
+	}
+
+	if (!scriptInterrupt && materials.length > 0 && optionLevelSREidolons)
+	{
+		let srEidolons2 = [];
+		srEidolons.sort((a, b) => a.level - b.level); // Sort by level (ascending)
+		while (!scriptInterrupt && srEidolons.length > 0)
+		{
+			let filtered = spliceByFilter(materials, a => a.element_type == srEidolons[0].element_type);
+			if (filtered.length > 0)
+			{
+				await checkAndLevelFirstEidolon(srEidolons, filtered);
+				if (filtered.length > 0) {
+					materials = materials.concat(filtered);
+				}
+			}
+			else
+			{
+				srEidolons2.push(ssrEidolons.shift());
+			}
+		}
+		materials.sort((a, b) => a.rare.localeCompare(b.rare)); // Sort by rarity (ascending)
+		while (!scriptInterrupt && srEidolons2.length > 0 && materials.length > 0)
+		{
+			await checkAndLevelFirstEidolon(srEidolons2, materials);
 		}
 	}
 }
@@ -463,11 +477,11 @@ async function scriptSkillWeaponsAsync()
 	let srGrails = [];
 	let rGrails = [];
 
-	if (!khWeaponsList) {
-		khWeaponsList = await getWeaponListAsync();
+	if (!cacheWeaponsList) {
+		await getWeaponListAsync();
 	}
 
-	for (let weapon of khWeaponsList)
+	for (let weapon of cacheWeaponsList)
 	{
 		if (weapon.rare == "SSR" && weapon.level > 1)
 		{
@@ -477,7 +491,7 @@ async function scriptSkillWeaponsAsync()
 		{
 			srWeapons.push(weapon);
 		}
-		else if (weapon.rare == "SR" && weapon.bonus == 0 && !weapon.is_equipped && !weapon.is_locked && weapon.level <= 16 && weapon.attack > 150)
+		else if (weapon.rare == "SR" && weapon.bonus == 0 && !weapon.is_equipped && !weapon.is_locked && weapon.level <= 17 && weapon.attack > 150)
 		{
 			srMaterials.push(weapon);
 		}
@@ -504,13 +518,16 @@ async function scriptSkillWeaponsAsync()
 			ssrWeapons[i] = await getWeaponDetailsAsync(ssrWeapons[i]);
 			i++;
 		}
+		ssrWeapons = ssrWeapons.filter(a => a.skills[0].level < 20);
+		ssrWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level); // Sort by skill level (ascending)
+
+		if (scriptInterrupt) return;
 
 		// Level is an indicator of whether a weapon or grail can have skill level above 1.
 		// So we will descending sort the highest level fodder to the front to be used first.
 		srMaterials.sort((a, b) => b.level - a.level); // Sort by level (descending)
 		srGrails.sort((a, b) => b.level - a.level); // Sort by level (descending)
 		rGrails.sort((a, b) => b.level - a.level); // Sort by level (descending)
-
 		i = 0;
 		while (i < srMaterials.length && srMaterials[i].level > 1) {
 			srMaterials[i] = await getWeaponDetailsAsync(srMaterials[i]);
@@ -527,13 +544,9 @@ async function scriptSkillWeaponsAsync()
 			i++;
 		}
 
-		ssrWeapons = ssrWeapons.filter(a => a.skills[0].level < 20);
-		// Each skill level offers a fixed amount of effect and lower skill level weapons
-		// require the least amount of materials to level up. So we will ascending sort
-		// the lowest level weapons to the front to be leveled first.
-		ssrWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level); // Sort by skill level (ascending)
+		if (scriptInterrupt) return;
 
-		while (ssrWeapons.length > 0 && await checkAndSkillFirstWeaponAsync(ssrWeapons, srMaterials, rMaterials, srGrails, rGrails))
+		while (!scriptInterrupt && ssrWeapons.length > 0 && await checkAndSkillFirstWeaponAsync(ssrWeapons, srMaterials, rMaterials, srGrails, rGrails))
 		{
 			if (ssrWeapons[0].skills[0].level < 20) {
 				ssrWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
@@ -543,7 +556,7 @@ async function scriptSkillWeaponsAsync()
 		}
 	}
 
-	if (rMaterials.length > 2 && optionSkillSRWeapons)
+	if (!scriptInterrupt && rMaterials.length >= 2 && optionSkillSRWeapons)
 	{
 		console.log("Getting SR weapon skill information. Please wait...");
 		let i = 0;
@@ -552,10 +565,12 @@ async function scriptSkillWeaponsAsync()
 			i++;
 		}
 
+		if (scriptInterrupt) return;
+
 		srWeapons = srWeapons.filter(a => a.skills[0].level < 20);
 		srWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level); // Sort by skill level (ascending)
 
-		while (srWeapons.length > 0 && await checkAndSkillFirstWeaponAsync(srWeapons, srMaterials, rMaterials, srGrails, rGrails))
+		while (!scriptInterrupt && srWeapons.length > 0 && await checkAndSkillFirstWeaponAsync(srWeapons, srMaterials, rMaterials, srGrails, rGrails))
 		{
 			if (srWeapons[0].skills[0].level < 20) {
 				srWeapons.sort((a, b) => a.skills[0].level - b.skills[0].level);
@@ -571,7 +586,7 @@ async function checkAndSkillFirstWeaponAsync(weapons, srMaterials, rMaterials, s
 	let materials = [];
 	let requirement = (weapons[0].rare == "SSR") ? weapons[0].skills[0].level * 2 : weapons[0].skills[0].level;
 
-	while (requirement > 0)
+	while (!scriptInterrupt && requirement > 0)
 	{
 		if (requirement >= 24.5 && await checkAndPrepareFirstGrailAsync(srGrails, rMaterials))
 		{
@@ -603,6 +618,8 @@ async function checkAndSkillFirstWeaponAsync(weapons, srMaterials, rMaterials, s
 			return false;
 		}
 	}
+
+	if (scriptInterrupt) return false;
 
 	weapons[0] = await enhanceWeaponAsync(weapons[0], materials);
 	return true;
@@ -707,19 +724,19 @@ async function scriptSkillGrailsAsync()
 	let srGrails = [];
 	let rMaterials = [];
 
-	if (!khWeaponsList) {
-		khWeaponsList = await getWeaponListAsync();
+	if (!cacheWeaponsList) {
+		await getWeaponListAsync();
 	}
 
-	for (let weapon of khWeaponsList)
+	for (let weapon of cacheWeaponsList)
 	{
-		if (weapon.rare == "R" && weapon.bonus == 0 && weapon.level < 8 && !weapon.is_equipped && !weapon.is_locked && weapon.name == "Arcane Grail")
-		{
-			rGrails.push(weapon);
-		}
-		else if (weapon.rare == "SR" && weapon.bonus == 0 && weapon.level < 15 && !weapon.is_equipped && !weapon.is_locked && weapon.name == "False Grail Yaldabaoth")
+		if (weapon.rare == "SR" && weapon.bonus == 0 && weapon.level < 15 && !weapon.is_equipped && !weapon.is_locked && weapon.name == "False Grail Yaldabaoth")
 		{
 			srGrails.push(weapon);
+		}
+		else if (weapon.rare == "R" && weapon.bonus == 0 && weapon.level < 8 && !weapon.is_equipped && !weapon.is_locked && weapon.name == "Arcane Grail")
+		{
+			rGrails.push(weapon);
 		}
 		else if (weapon.rare == "R" && weapon.bonus == 0 && weapon.level == 1 && !weapon.is_equipped && !weapon.is_locked && weapon.attack > 100)
 		{
@@ -730,56 +747,23 @@ async function scriptSkillGrailsAsync()
 	if (rMaterials.length >= 1)
 	{
 		rGrails.sort((a, b) => b.level - a.level); // Sort by level (descending)
-		while (rGrails.length > 0)
+
+		while (!scriptInterrupt && srGrails.length > 0)
 		{
-			if (rGrails[0].level > 1)
-			{
-				rGrails[0] = await getWeaponDetailsAsync(rGrails[0]);
-				if (rGrails[0].skills[0].level == 2) {
-					await enhanceWeaponAsync(rGrails[0], rMaterials.splice(0, 1));
-				}
-				rGrails.shift();
-			}
-			else
-			{
-				if (rMaterials.length >= 2)
-				{
-					await enhanceWeaponAsync(rGrails[0], rMaterials.splice(0, 1));
-					await enhanceWeaponAsync(rGrails[0], rMaterials.splice(0, 1));
-					rGrails.shift();
-				}
-				else
-				{
-					break;
-				}
+			let result = await checkAndPrepareFirstGrailAsync(srGrails, rMaterials);
+			if (result) {
+				srGrails.shift();
+			} else {
+				break;
 			}
 		}
-		while (srGrails.length > 0)
+		while (!scriptInterrupt && rGrails.length > 0)
 		{
-			if (srGrails[0].level > 1)
-			{
-				srGrails[0] = await getWeaponDetailsAsync(srGrails[0]);
-				if (srGrails[0].skills[0].level == 2 && rMaterials.length >= 2) {
-					srGrails[0] = await enhanceWeaponAsync(srGrails[0], rMaterials.splice(0, 2));
-				}
-				if (srGrails[0].skills[0].level == 3 && rMaterials.length >= 3) {
-					await enhanceWeaponAsync(srGrails[0], rMaterials.splice(0, 3));
-				}
-				srGrails.shift();
-			}
-			else
-			{
-				if (rMaterials.length >= 6)
-				{
-					await enhanceWeaponAsync(srGrails[0], rMaterials.splice(0, 1));
-					await enhanceWeaponAsync(srGrails[0], rMaterials.splice(0, 2));
-					await enhanceWeaponAsync(srGrails[0], rMaterials.splice(0, 3));
-					srGrails.shift();
-				}
-				else
-				{
-					break;
-				}
+			let result = await checkAndPrepareFirstGrailAsync(rGrails, rMaterials);
+			if (result) {
+				rGrails.shift();
+			} else {
+				break;
 			}
 		}
 	}
@@ -787,30 +771,30 @@ async function scriptSkillGrailsAsync()
 
 async function scriptSellItemsAsync()
 {
-	if (!khWeaponsList) {
-		khWeaponsList = await getWeaponListAsync();
+	if (!cacheWeaponsList) {
+		await getWeaponListAsync();
 	}
 
-	let weapons = khWeaponsList.filter(a => a.rare == "N" && a.bonus == 0 && !a.is_equipped && !a.is_locked && a.level == 1);
+	let weapons = cacheWeaponsList.filter(a => a.rare == "N" && a.bonus == 0 && !a.is_equipped && !a.is_locked && a.level == 1);
 	if (optionSellCherubWeapons)
 	{
-		weapons = weapons.concat(khWeaponsList.filter(a => a.rare == "R" && a.bonus == 0 && !a.is_equipped && !a.is_locked && a.level == 1 && a.attack == 8));
+		weapons = weapons.concat(cacheWeaponsList.filter(a => a.rare == "R" && a.bonus == 0 && !a.is_equipped && !a.is_locked && a.level == 1 && a.attack == 8));
 	}
-	while (weapons.length > 0)
+	while (!scriptInterrupt && weapons.length > 0)
 	{
 		await sellWeaponsAsync(weapons.splice(0, 20));
 	}
 
-	if (!khEidolonsList) {
-		khEidolonsList = await getEidolonListAsync();
+	if (!cacheEidolonsList) {
+		await getEidolonListAsync();
 	}
 
-	let eidolons = khEidolonsList.filter(a => a.rare == "N" && a.bonus == 0 && !a.is_equipped && !a.is_locked && a.level == 1);
+	let eidolons = cacheEidolonsList.filter(a => a.rare == "N" && a.bonus == 0 && !a.is_equipped && !a.is_locked && a.level == 1);
 	if (optionSellREidolons)
 	{
-		eidolons = eidolons.concat(khEidolonsList.filter(a => a.rare == "R" && a.bonus == 0 && !a.is_equipped && !a.is_locked && a.level == 1 && a.attack > 6));
+		eidolons = eidolons.concat(cacheEidolonsList.filter(a => a.rare == "R" && a.bonus == 0 && !a.is_equipped && !a.is_locked && a.level == 1 && a.attack > 6));
 	}
-	while (eidolons.length > 0)
+	while (!scriptInterrupt && eidolons.length > 0)
 	{
 		await sellEidolonsAsync(eidolons.splice(0, 20));
 	}
@@ -819,46 +803,45 @@ async function scriptSellItemsAsync()
 async function getGachaInfoAsync()
 {
 	let result = await khGachaApi.getCategory("normal");
-
 	return result.body;
 }
 async function playGachaAsync(gacha_id)
 {
 	let result = await khGachaApi.playGacha("normal", gacha_id);
+	cacheWeaponsList = null;
+	cacheEidolonsList = null;
 
-	console.log(`Gacha: Obtained ${result.body.obtained_info.length} Items`);
+	console.log("Obtained", result.body.obtained_info.length, "Gacha Items");
 
 	return result.body;
 }
 async function getWeaponListAsync()
 {
+	if (cacheWeaponsList) return cacheWeaponsList;
 	let result = await khWeaponsApi.getList(0, 500);
-
-	console.log(`Found ${result.body.data.length} Weapons`);
-
+	cacheWeaponsList = result.body.data;
 	return result.body.data;
 }
 async function getWeaponDetailsAsync(weapon)
 {
 	let result = await khWeaponsApi.get(weapon.a_weapon_id);
-
 	return result.body;
 }
 async function enhanceWeaponAsync(weapon, materials)
 {
 	let result = await khWeaponsApi.enhance(weapon.a_weapon_id, materials.map(a => a.a_weapon_id));
-	khWeaponsList = null; // Invalidate Weapon List
+	cacheWeaponsList = null;
 
 	weapon = result.body.weapon;
 	result = result.body.result;
 	if (result.gained_exp > 0) {
-		console.log(`${weapon.name} Gained ${result.gained_exp} EXP`);
+		console.log(weapon.name, "Gained", result.gained_exp, "EXP");
 	}
 	if (result.before.level < result.after.level) {
-		console.log(`${weapon.name} Gained ${result.after.level - result.before.level} Levels (${result.before.level} -> ${result.after.level})`);
+		console.log(weapon.name, "Gained", result.after.level - result.before.level, "Levels (", result.before.level, "->", result.after.level, ")");
 	}
 	if (result.before.skill_level < result.after.skill_level) {
-		console.log(`${weapon.name} Gained 1 Skill Level (${result.before.skill_level} -> ${result.after.skill_level})`);
+		console.log(weapon.name, "Gained 1 Skill Level (", result.before.skill_level, "->", result.after.skill_level, ")");
 	}
 
 	return weapon;
@@ -866,30 +849,31 @@ async function enhanceWeaponAsync(weapon, materials)
 async function sellWeaponsAsync(weapons)
 {
 	let result = await khWeaponsApi.sell(weapons.map(a => a.a_weapon_id));
-	khWeaponsList = null; // Invalidate Weapon List
+	cacheWeaponsList = null;
 
-	console.log(`Sold ${result.body.weapon_ids.length} Weapons`);
+	console.log("Sold", result.body.weapon_ids.length, "Weapons");
+
+	return result.body.weapon_ids;
 }
 async function getEidolonListAsync()
 {
+	if (cacheEidolonsList) return cacheEidolonsList;
 	let result = await khSummonsApi.getList(0, 500);
-
-	console.log(`Found ${result.body.data.length} Eidolons`);
-
-	return result.body.data;
+	cacheEidolonsList = result.body.data;
+	return cacheEidolonsList;
 }
 async function enhanceEidolonAsync(eidolon, materials)
 {
 	let result = await khSummonsApi.enhance(eidolon.a_summon_id, materials.map(a => a.a_summon_id));
-	khEidolonsList = null; // Invalidate Eidolon List
+	cacheEidolonsList = null;
 
 	eidolon = result.body.summon;
 	result = result.body.result;
 	if (result.gained_exp > 0) {
-		console.log(`${eidolon.name} Gained ${result.gained_exp} EXP`);
+		console.log(eidolon.name, "Gained", result.gained_exp, "EXP");
 	}
 	if (result.before.level < result.after.level) {
-		console.log(`${eidolon.name} Gained ${result.after.level - result.before.level} Levels (${result.before.level} -> ${result.after.level})`);
+		console.log(eidolon.name, "Gained", result.after.level - result.before.level, "Levels (", result.before.level, "->", result.after.level, ")");
 	}
 
 	return eidolon;
@@ -897,11 +881,24 @@ async function enhanceEidolonAsync(eidolon, materials)
 async function sellEidolonsAsync(eidolons)
 {
 	let result = await khSummonsApi.sell(eidolons.map(a => a.a_summon_id));
-	khEidolonsList = null; // Invalidate Eidolon List
+	cacheEidolonsList = null;
 
-	console.log(`Sold ${result.body.summon_ids.length} Eidolons`);
+	console.log("Sold", result.body.summon_ids.length, "Eidolons");
+
+	return result.body.summon_ids;
 }
 
+function delay(duration)
+{
+	return new Promise(resolve => setTimeout(resolve, duration));
+}
+function spliceByFilter(arr, func)
+{
+	arr.sort((a, b) => func(b) - func(a));
+	let i = arr.findIndex(a => !func(a));
+	if (i < 0) i = arr.length;
+	return arr.splice(0, i);
+}
 function has(obj)
 {
 	if (obj !== Object(obj)) return false;
