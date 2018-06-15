@@ -29,14 +29,14 @@ var optionSkillSRWeapons = false;
 var optionSellCherubWeapons = false;
 var optionSellREidolons = false;
 
-var khWeaponsApi;
-var khSummonsApi;
-var khGachaApi;
-var khRouter;
+let khWeaponsApi;
+let khSummonsApi;
+let khGachaApi;
+let khRouter;
 let khNavigate;
 let scriptInterrupt;
-var cacheWeaponsList;
-var cacheEidolonsList;
+let cacheWeaponsList;
+let cacheEidolonsList;
 
 async function khInjectionAsync()
 {
@@ -379,7 +379,7 @@ async function scriptLevelEidolonsAsync()
 			}
 			else
 			{
-				srEidolons2.push(ssrEidolons.shift());
+				srEidolons2.push(srEidolons.shift());
 			}
 		}
 		materials.sort((a, b) => a.rare.localeCompare(b.rare)); // Sort by rarity (ascending)
