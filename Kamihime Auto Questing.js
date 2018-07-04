@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kamihime Auto Questing
 // @namespace    https://github.com/Warsen/KamiHime-scripts
-// @version      0.1
+// @version      0.2
 // @description  Automatically starts quests for you. See options for details.
 // @author       Warsen
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi_acce_detail/app.html*
@@ -12,7 +12,7 @@
 
 // Auto questing runs when you go to SP Quests or shortly after any battle.
 // You can exit the loop at the results screens.
-// NOTE: Do to a bug, it may not work the first time you navigate.
+// NOTE: Due to a bug, it may not work the first time you navigate.
 
 // Sets the script to repeat the last quest you have done rather than
 // attempting to start its own quests from filters.
@@ -23,19 +23,19 @@ var optionQuestIsRaidEventQuest = false;
 
 // Filter functions to be used in filtering quests.
 // Ignores quests that do not meet the following conditions.
-var optionQuestFilters = []
+var optionQuestFilters = [];
 optionQuestFilters.push(a => a.title == "Gem Quest Expert");
 //optionQuestFilters.push(a => a.type == "event" && a.quest_ap == 30);
 
 // Sort functions to be used in sorting quests.
-var optionQuestSorts = []
+var optionQuestSorts = [];
 
 // Filter functions to be used in filtering helpers.
-var optionSupporterFilters = []
+var optionSupporterFilters = [];
 optionSupporterFilters.push(a => !a.summon_info.name.startsWith("Lilim"));
 
 // Sort functions to be used in sorting supporters.
-var optionSupporterSorts = []
+var optionSupporterSorts = [];
 optionSupporterSorts.push((a, b) => b.summon_info.level - a.summon_info.level);
 optionSupporterSorts.push((a, b) => b.is_friend - a.is_friend);
 
@@ -43,23 +43,21 @@ optionSupporterSorts.push((a, b) => b.is_friend - a.is_friend);
 // If you want to exit automatic navigation, this gives you extra time to do it.
 var optionAdditionalWaitAtAcquisitions = 5000;
 
-let khRouterParams;
-let khBannersApi;
 let khPlayersApi;
+let khBannersApi;
 let khQuestInfoApi;
 let khQuestsApi;
 let khBattlesApi;
-let khEventsApi;
 let khItemsApi;
 let khSummonsApi;
 let khRouter;
-let scriptInterrupt;
+let khRouterParams;
 
 async function khInjectionAsync()
 {
 	// Wait for the game to load.
 	while (!has(cc, "director", "_runningScene", "_seekWidgetByName") || !has(kh, "createInstance")) {
-		await delay(500);
+		await delay(200);
 	}
 	kh.env.sendErrorLog = false;
 
@@ -69,11 +67,9 @@ async function khInjectionAsync()
 	khQuestInfoApi = kh.createInstance("apiAQuestInfo");
 	khQuestsApi = kh.createInstance("apiAQuests");
 	khBattlesApi = kh.createInstance("apiABattles");
-	khEventsApi = kh.createInstance("apiEvents");
 	khItemsApi = kh.createInstance("apiAItems");
 	khSummonsApi = kh.createInstance("apiASummons");
 	khRouter = kh.createInstance("router");
-	console.log(kh);
 
 	if (!optionSameQuestAfterQuest)
 	{
@@ -81,15 +77,10 @@ async function khInjectionAsync()
 		let _navigate = kh.Router.prototype.navigate;
 		kh.Router.prototype.navigate = function(destination) {
 			_navigate.apply(this, arguments);
-			console.log(destination);
+//			console.log(destination);
 
-			if (destination == "quest/q_004")
-			{
+			if (destination == "quest/q_004") {
 				setTimeout(scriptAutoStartQuestAsync, 5000);
-			}
-			else
-			{
-				scriptInterrupt = true;
 			}
 		};
 	}
@@ -98,26 +89,37 @@ async function khInjectionAsync()
 	while (!has(cc, "director", "_runningScene", "routerParams")) {
 		await delay(100);
 	}
-	khRouterParams = cc.director._runningScene.routerParams;
 
-	if (location.hash.startsWith("#!quest/q_003_1")) // Battle Results
+	khRouterParams = cc.director._runningScene.routerParams;
+	if (khRouterParams.quest_type == "daily" || khRouterParams.quest_type == "guerrilla" || khRouterParams.quest_type == "accessory" || khRouterParams.is_own_raid)
 	{
-		await delay(5000);
-		if (location.hash.startsWith("#!quest/q_003_1")) {
-			khRouter.navigate("quest/q_003_2");
-		}
-		if (location.hash.startsWith("#!quest/q_003_2"))
+		console.log("Auto Questing");
+		if (!optionSameQuestAfterQuest && location.hash.startsWith("#!quest/q_004")) // SP Quests
 		{
-			await delay(3000);
-			if (optionAdditionalWaitAtAcquisitions) {
-				await delay(optionAdditionalWaitAtAcquisitions);
+			setTimeout(scriptAutoStartQuestAsync, 5000);
+		}
+		else if (location.hash.startsWith("#!quest/q_003_1")) // Battle Results
+		{
+			await delay(5000);
+			if (location.hash.startsWith("#!quest/q_003_1"))
+			{
+				khRouter.navigate("quest/q_003_2");
 			}
-			if (location.hash.startsWith("#!quest/q_003_2")) {
-				if (optionSameQuestAfterQuest) {
-					setTimeout(scriptAutoStartSameQuestAsync, 0);
+			if (location.hash.startsWith("#!quest/q_003_2"))
+			{
+				await delay(3000);
+				if (optionAdditionalWaitAtAcquisitions)
+				{
+					await delay(optionAdditionalWaitAtAcquisitions);
 				}
-				else {
-					setTimeout(scriptAutoStartQuestAsync, 0);
+				if (location.hash.startsWith("#!quest/q_003_2"))
+				{
+					if (optionSameQuestAfterQuest) {
+						setTimeout(scriptAutoStartSameQuestAsync, 0);
+					}
+					else {
+						setTimeout(scriptAutoStartQuestAsync, 0);
+					}
 				}
 			}
 		}
@@ -126,60 +128,27 @@ async function khInjectionAsync()
 
 async function scriptAutoStartQuestAsync()
 {
-	let questInfo = await getQuestInfoAsync();
-	if (questInfo.has_unverified)
-	{
-		let pending = await getPendingResultListAsync();
-		for (let result of pending) {
-			await getBattleResultAsync(result.a_battle_id, result.quest_type)
-		}
-		questInfo = await getQuestInfoAsync();
-	}
+	if (!location.hash.startsWith("#!quest/q_003_2") && !location.hash.startsWith("#!quest/q_004")) return;
 
-	if (questInfo.in_progress.own_raid)
-	{
-		let raid = questInfo.in_progress.own_raid;
-
-		console.log("Rejoining Raid", raid.a_quest_id, raid.title);
-		khRouter.navigate("battle", {
-			a_battle_id: raid.a_battle_id,
-			a_quest_id: raid.a_quest_id,
-			quest_type: "raid",
-			is_own_raid: true,
-		});
-	}
-	else if (questInfo.in_progress.own_quest)
-	{
-		let quest = questInfo.in_progress.own_quest;
-		let state = await getQuestStateAsync(quest.a_quest_id, quest.type);
-		while (state.next_info.next_kind == "talk" || state.next_info.next_kind == "harem-story") {
-			state = await getQuestNextStateAsync(state.a_quest_id, quest.type);
-		}
-
-		console.log("Rejoining Quest", quest.a_quest_id, quest.title);
-		khRouter.navigate("battle", {
-			a_battle_id: state.next_info.id,
-			a_quest_id: quest.a_quest_id,
-			quest_type: quest.type,
-		});
-	}
-	else
+	let isQuestInfoHandled = await scriptHandleQuestInfoAsync();
+	if (isQuestInfoHandled)
 	{
 		let quests;
 		if (optionQuestIsRaidEventQuest)
 		{
 			let banners = await getQuestBannersAsync();
-			let raidEventBanner = banners.find(a => a.event_type == "raid_event");
-			if (raidEventBanner)
+			let eventBanner = banners.find(a => a.event_type == "raid_event");
+			if (eventBanner)
 			{
-				quests = await getRaidEventQuestListAsync(raidEventBanner.event_id);
+				quests = await getEventRaidQuestListAsync(eventBanner.event_id);
 				quests = quests.filter(a => !a.required_item.hasOwnProperty("possession_amount") || a.required_item.possession_amount >= a.required_item.amount);
 			}
 		}
 		if (!quests)
 		{
-			quests = await getSpecialQuestListAsync();
+			quests = await getSPQuestListAsync();
 			quests = quests.filter(a => !a.limit_info.hasOwnProperty("remaining_challenge_count") || a.limit_info.remaining_challenge_count > 0);
+			quests = quests.filter(a => !a.required_item.hasOwnProperty("possession_amount") || a.required_item.possession_amount >= a.required_item.amount);
 		}
 		for (let filter of optionQuestFilters) {
 			quests = quests.filter(filter);
@@ -191,34 +160,25 @@ async function scriptAutoStartQuestAsync()
 		if (quests.length > 0)
 		{
 			console.log("Found quest", quests[0].title, quests[0].quest_ap, "AP");
-
-			let qp = await getQuestPointsAsync();
-			if (quests[0].quest_ap > qp.ap)
+			let isQuestAPHandled = await scriptHandleQuestAPAsync(quests[0].quest_ap);
+			if (isQuestAPHandled)
 			{
-				let isApRestored = await useRestoreAPAsync(quests[0].quest_ap - qp.ap, qp.max_ap);
-				if (!isApRestored)
-				{
-					console.log("Not enough half elixirs. Ending...");
-					return;
+				let profile = await getMyProfileAsync();
+				let supporters = await getSupporterListAsync(quests[0].episodes[0].recommended_element_type);
+				for (let filter of optionSupporterFilters) {
+					supporters = supporters.filter(filter);
 				}
-			}
+				for (let sort of optionSupporterSorts) {
+					supporters.sort(sort);
+				}
 
-			let supporters = await getSupporterListAsync(quests[0].episodes[0].recommended_element_type);
-			for (let filter of optionSupporterFilters) {
-				supporters = supporters.filter(filter);
+				await startQuestBattleAsync(
+					quests[0].a_quest_id,
+					quests[0].type,
+					profile.selected_party.a_party_id,
+					supporters[0].summon_info.a_summon_id,
+				);
 			}
-			for (let sort of optionSupporterSorts) {
-				supporters.sort(sort);
-			}
-
-			let profile = await getMyProfileAsync();
-
-			await startQuestAsync(
-				quests[0].a_quest_id,
-				quests[0].type,
-				profile.selected_party.a_party_id,
-				supporters[0].summon_info.a_summon_id,
-			);
 		}
 		else
 		{
@@ -227,6 +187,64 @@ async function scriptAutoStartQuestAsync()
 	}
 }
 async function scriptAutoStartSameQuestAsync()
+{
+	if (!location.hash.startsWith("#!quest/q_003_2") && !location.hash.startsWith("#!quest/q_004")) return;
+
+	let isQuestInfoHandled = await scriptHandleQuestInfoAsync();
+	if (isQuestInfoHandled)
+	{
+		let quest;
+		if (khRouterParams.quest_type == "daily" || khRouterParams.quest_type == "guerrilla" || khRouterParams.quest_type == "accessory")
+		{
+			let quests = await getSPQuestListAsync();
+			quests = quests.filter(a => !a.limit_info.hasOwnProperty("remaining_challenge_count") || a.limit_info.remaining_challenge_count > 0);
+			quests = quests.filter(a => !a.required_item.hasOwnProperty("possession_amount") || a.required_item.possession_amount >= a.required_item.amount);
+			quest = quests.find(a => a.a_quest_id == khRouterParams.a_quest_id);
+		}
+		else if (khRouterParams.quest_type == "raid")
+		{
+			let quests = await getRaidQuestListAsync();
+			quests = quests.filter(a => !a.limit_info.hasOwnProperty("remaining_challenge_count") || a.limit_info.remaining_challenge_count > 0);
+			quests = quests.filter(a => !a.required_item.hasOwnProperty("possession_amount") || a.required_item.possession_amount >= a.required_item.amount);
+			quest = quests.find(a => a.a_quest_id == khRouterParams.a_quest_id);
+		}
+		else if (khRouterParams.quest_type == "event_raid")
+		{
+			let quests = await getEventRaidQuestListAsync(khRouterParams.ra_001.event_id);
+			quests = quests.filter(a => !a.required_item.hasOwnProperty("possession_amount") || a.required_item.possession_amount >= a.required_item.amount);
+			quest = quests.find(a => a.a_quest_id == khRouterParams.a_quest_id);
+		}
+
+		if (quest)
+		{
+			console.log("Found same quest", quest.title, quest.quest_ap, "AP");
+			let isQuestAPHandled = await scriptHandleQuestAPAsync(quest.quest_ap);
+			if (isQuestAPHandled)
+			{
+				let profile = await getMyProfileAsync();
+				let supporters = await getSupporterListAsync(quest.episodes[0].recommended_element_type);
+				for (let filter of optionSupporterFilters) {
+					supporters = supporters.filter(filter);
+				}
+				for (let sort of optionSupporterSorts) {
+					supporters.sort(sort);
+				}
+
+				await startQuestBattleAsync(
+					quest.a_quest_id,
+					quest.type,
+					profile.selected_party.a_party_id,
+					supporters[0].summon_info.a_summon_id,
+				);
+			}
+		}
+		else
+		{
+			console.log("Same quest not available.");
+		}
+	}
+}
+async function scriptHandleQuestInfoAsync()
 {
 	let questInfo = await getQuestInfoAsync();
 	if (questInfo.has_unverified)
@@ -249,6 +267,8 @@ async function scriptAutoStartSameQuestAsync()
 			quest_type: "raid",
 			is_own_raid: true,
 		});
+
+		return false;
 	}
 	else if (questInfo.in_progress.own_quest)
 	{
@@ -264,61 +284,25 @@ async function scriptAutoStartSameQuestAsync()
 			a_quest_id: quest.a_quest_id,
 			quest_type: quest.type,
 		});
+
+		return false;
 	}
-	else
+
+	return true;
+}
+async function scriptHandleQuestAPAsync(quest_ap, qp)
+{
+	if (!qp) qp = await getQuestPointsAsync();
+	if (qp.ap < quest_ap)
 	{
-		let quest;
-		if (khRouterParams.quest_type == "daily" || khRouterParams.quest_type == "guerrilla" || khRouterParams.quest_type == "accessory")
+		let isAPRestored = await useRestoreAPAsync(quest_ap - qp.ap, qp.max_ap);
+		if (!isAPRestored)
 		{
-			let quests = await getSpecialQuestListAsync();
-			quests = quests.filter(a => !a.limit_info.hasOwnProperty("remaining_challenge_count") || a.limit_info.remaining_challenge_count > 0);
-			quest = quests.find(a => a.a_quest_id == khRouterParams.a_quest_id);
-		}
-		else if (khRouterParams.quest_type == "event_raid")
-		{
-			let quests = await getRaidEventQuestListAsync(khRouterParams.ra_001.event_id);
-			quests = quests.filter(a => !a.required_item.hasOwnProperty("possession_amount") || a.required_item.possession_amount >= a.required_item.amount);
-			quest = quests.find(a => a.a_quest_id == khRouterParams.a_quest_id);
-		}
-
-		if (quest)
-		{
-			console.log("Found same quest", quest.title, quest.quest_ap, "AP");
-
-			let qp = await getQuestPointsAsync();
-			if (quest.quest_ap > qp.ap)
-			{
-				let isApRestored = await useRestoreAPAsync(quest.quest_ap - qp.ap, qp.max_ap);
-				if (!isApRestored)
-				{
-					console.log("Not enough half elixirs. Ending...");
-					return;
-				}
-			}
-
-			let supporters = await getSupporterListAsync(quest.episodes[0].recommended_element_type);
-			for (let filter of optionSupporterFilters) {
-				supporters = supporters.filter(filter);
-			}
-			for (let sort of optionSupporterSorts) {
-				supporters.sort(sort);
-			}
-
-			let profile = await getMyProfileAsync();
-
-			await startQuestAsync(
-				quest.a_quest_id,
-				quest.type,
-				profile.selected_party.a_party_id,
-				supporters[0].summon_info.a_summon_id,
-			);
-		}
-		else
-		{
-			console.log("Same quest not found.");
-			console.log(khRouterParams);
+			console.log("Not enough half elixirs. Ending...");
+			return false;
 		}
 	}
+	return true;
 }
 
 async function getMyProfileAsync()
@@ -351,12 +335,21 @@ async function getQuestBannersAsync()
 	let result = await khBannersApi.getQuestBanners();
 	return result.body.data;
 }
-async function getSpecialQuestListAsync()
+async function getSPQuestListAsync()
 {
 	let result = await khQuestsApi.getListSpecialQuest();
 	return result.body.data;
 }
-async function getRaidEventQuestListAsync(event_id)
+async function getRaidQuestListAsync()
+{
+	let result = await khQuestsApi.getListRaid();
+	let list = [];
+	for (let body of result.body.raid_quest_lists) {
+		list = list.concat(body.data);
+	}
+	return list;
+}
+async function getEventRaidQuestListAsync(event_id)
 {
 	let result = await khQuestsApi.getListEventQuest(event_id);
 	return result.body.data;
@@ -398,10 +391,10 @@ async function useRestoreAPAsync(needed_ap, max_ap)
 	}
 	return false;
 }
-async function useRestoreBPAsync(needed_ap)
+async function useRestoreBPAsync(needed_bp)
 {
 	let result = await khItemsApi.getCure(1, 10);
-	if (needed_ap == 5)
+	if (needed_bp == 5)
 	{
 		let energyLeaf = result.body.data.find(a => a.name == "Energy Leaf");
 		if (energyLeaf)
@@ -411,14 +404,14 @@ async function useRestoreBPAsync(needed_ap)
 		}
 	}
 	let energySeed = result.body.data.find(a => a.name == "Energy Seed");
-	if (energySeed && energySeed.num >= needed_ap)
+	if (energySeed && energySeed.num >= needed_bp)
 	{
-		await khItemsApi.useItem(energySeed.a_item_id, needed_ap);
+		await khItemsApi.useItem(energySeed.a_item_id, needed_bp);
 		return true;
 	}
 	return false;
 }
-async function startQuestAsync(quest_id, quest_type, party_id, summon_id)
+async function startQuestBattleAsync(quest_id, quest_type, party_id, summon_id)
 {
 	let result = await khQuestsApi.startQuest(quest_id, quest_type, party_id, summon_id);
 	if (result.body.cannot_progress_info)

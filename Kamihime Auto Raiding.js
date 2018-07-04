@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kamihime Auto Raiding
 // @namespace    https://github.com/Warsen/KamiHime-scripts
-// @version      0.5
+// @version      0.6
 // @description  Automatically joins raid battles for you. See options for details.
 // @author       Warsen
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi_acce_detail/app.html*
@@ -20,7 +20,7 @@ var optionEndWithZeroBPRemaining = false;
 
 // Filter functions to be used in filtering raid requests.
 // Ignores raid requests that do not meet the following conditions.
-var optionRaidRequestFilters = []
+var optionRaidRequestFilters = [];
 optionRaidRequestFilters.push(a => a.enemy_hp / a.enemy_max >= 0.20);
 optionRaidRequestFilters.push(a => (a.enemy_level == 50 && a.participants <= 8) || (a.enemy_level == 70 && a.participants <= 12));
 //optionRaidRequestFilters.push(a => a.enemy_level == 50 && a.participants <= 8);
@@ -30,17 +30,17 @@ optionRaidRequestFilters.push(a => !a.enemy_name.startsWith("Prison"));
 // Sort functions to be used in sorting raid requests.
 // The script always picks the first raid after filtering, so you want your
 // prefered raid conditions sorted to the front.
-var optionRaidRequestSorts = []
+var optionRaidRequestSorts = [];
 optionRaidRequestSorts.push((a, b) => b.enemy_level - a.enemy_level || b.enemy_hp - a.enemy_hp);
 //optionRaidRequestSorts.push((a, b) => b.has_union_member - a.has_union_member);
 //optionRaidRequestSorts.push((a, b) => b.help_requested_player_name == "playername");
 
 // Filter functions to be used in filtering helpers.
-var optionSupporterFilters = []
+var optionSupporterFilters = [];
 optionSupporterFilters.push(a => !a.summon_info.name.startsWith("Lilim"));
 
 // Sort functions to be used in sorting supporters.
-var optionSupporterSorts = []
+var optionSupporterSorts = [];
 optionSupporterSorts.push((a, b) => b.summon_info.level - a.summon_info.level);
 optionSupporterSorts.push((a, b) => b.is_friend - a.is_friend);
 
@@ -53,16 +53,15 @@ var optionAdditionalWaitAtAcquisitions = 5000;
 // and raids don't disappear very quickly, so please wait at least 20 seconds.
 var optionWaitBetweenRaidRequestChecks = 30000;
 
-let khRouterParams;
 let khPlayersApi;
+let khBannersApi;
 let khQuestInfoApi;
 let khQuestsApi;
 let khBattlesApi;
 let khItemsApi;
 let khSummonsApi;
 let khRouter;
-let isBattleJoined;
-let scriptInterrupt;
+let khRouterParams;
 
 async function khInjectionAsync()
 {
@@ -74,6 +73,7 @@ async function khInjectionAsync()
 
 	// Create instances of the various APIs.
 	khPlayersApi = kh.createInstance("apiAPlayers");
+	khBannersApi = kh.createInstance("apiABanners");
 	khQuestInfoApi = kh.createInstance("apiAQuestInfo");
 	khQuestsApi = kh.createInstance("apiAQuests");
 	khBattlesApi = kh.createInstance("apiABattles");
@@ -85,15 +85,10 @@ async function khInjectionAsync()
 	let _navigate = kh.Router.prototype.navigate;
 	kh.Router.prototype.navigate = function(destination) {
 		_navigate.apply(this, arguments);
-		console.log(destination);
+//		console.log(destination);
 
-		if (destination == "quest/q_006")
-		{
+		if (destination == "quest/q_006") {
 			setTimeout(scriptAutoRaidBattleAsync, 3000);
-		}
-		else
-		{
-			scriptInterrupt = true;
 		}
 	};
 
@@ -101,32 +96,107 @@ async function khInjectionAsync()
 	while (!has(cc, "director", "_runningScene", "routerParams")) {
 		await delay(100);
 	}
-	khRouterParams = cc.director._runningScene.routerParams;
 
-	if (location.hash.startsWith("#!quest/q_006")) // Raid Requests
+	khRouterParams = cc.director._runningScene.routerParams;
+	if (khRouterParams.hasOwnProperty("is_own_raid") && khRouterParams.is_own_raid == false)
 	{
-		setTimeout(scriptAutoRaidBattleAsync, 3000);
-	}
-	else if (location.hash.startsWith("#!quest/q_003_1")) // Battle Results
-	{
-		await delay(5000);
-		if (location.hash.startsWith("#!quest/q_003_1")) {
-			khRouter.navigate("quest/q_003_2");
-		}
-		if (location.hash.startsWith("#!quest/q_003_2"))
+		console.log("Auto Raiding");
+		if (location.hash.startsWith("#!quest/q_006")) // Raid Requests
 		{
-			await delay(3000);
-			if (optionAdditionalWaitAtAcquisitions) {
-				await delay(optionAdditionalWaitAtAcquisitions);
+			setTimeout(scriptAutoRaidBattleAsync, 3000);
+		}
+		else if (location.hash.startsWith("#!quest/q_003_1")) // Battle Results
+		{
+			await delay(5000);
+			if (location.hash.startsWith("#!quest/q_003_1"))
+			{
+				khRouter.navigate("quest/q_003_2");
 			}
-			if (location.hash.startsWith("#!quest/q_003_2")) {
-				khRouter.navigate("quest/q_006");
+			if (location.hash.startsWith("#!quest/q_003_2"))
+			{
+				await delay(3000);
+				if (optionAdditionalWaitAtAcquisitions)
+				{
+					await delay(optionAdditionalWaitAtAcquisitions);
+				}
+				if (location.hash.startsWith("#!quest/q_003_2"))
+				{
+					khRouter.navigate("quest/q_006");
+				}
 			}
 		}
 	}
 }
 
 async function scriptAutoRaidBattleAsync()
+{
+	if (!location.hash.startsWith("#!quest/q_006")) return;
+
+	let isQuestInfoHandled = await scriptHandleQuestInfoAsync();
+	if (isQuestInfoHandled)
+	{
+		let qp;
+		if (optionEndWithZeroBPRemaining)
+		{
+			qp = await getQuestPointsAsync();
+			if (qp.bp == 0)
+			{
+				console.log("Zero BP remaining. Ending...");
+				return;
+			}
+		}
+
+		while (location.hash.startsWith("#!quest/q_006"))
+		{
+			let requests = await getRaidRequestListAsync();
+			requests = requests.filter(a => !a.is_joined && !a.is_own_raid);
+			for (let filter of optionRaidRequestFilters) {
+				requests = requests.filter(filter);
+			}
+			for (let sort of optionRaidRequestSorts) {
+				requests.sort(sort);
+			}
+
+			if (requests.length > 0)
+			{
+				console.log("Found raid", requests[0].enemy_name, "lv.", requests[0].enemy_level, "requested by", requests[0].help_requested_player_name);
+				let isRequestBPHandled = await scriptHandleRequestBPAsync(requests[0].battle_bp);
+				if (isRequestBPHandled)
+				{
+					console.log("Joining raid in", 10, "seconds. Leave to cancel.");
+					let waitBeforeJoiningRaidbattle = delay(10000);
+
+					let profile = await getMyProfileAsync();
+					let supporters = await getSupporterListAsync(requests[0].recommended_element_type);
+					for (let filter of optionSupporterFilters) {
+						supporters = supporters.filter(filter);
+					}
+					for (let sort of optionSupporterSorts) {
+						supporters.sort(sort);
+					}
+
+					await waitBeforeJoiningRaidbattle;
+					if (!location.hash.startsWith("#!quest/q_006")) return;
+
+					await joinRaidBattleAsync(
+						requests[0].a_battle_id,
+						requests[0].a_quest_id,
+						requests[0].quest_type,
+						profile.a_player_id,
+						profile.selected_party.a_party_id,
+						supporters[0].summon_info.a_summon_id
+					);
+				}
+			}
+			else
+			{
+				console.log("Did not find a suitable raid request. Waiting", optionWaitBetweenRaidRequestChecks / 1000, "seconds...");
+				await delay(optionWaitBetweenRaidRequestChecks);
+			}
+		}
+	}
+}
+async function scriptHandleQuestInfoAsync()
 {
 	let questInfo = await getQuestInfoAsync();
 	if (questInfo.has_unverified)
@@ -149,6 +219,8 @@ async function scriptAutoRaidBattleAsync()
 			quest_type: "raid",
 			is_own_raid: true,
 		});
+
+		return false;
 	}
 	else if (questInfo.in_progress.own_quest)
 	{
@@ -164,79 +236,25 @@ async function scriptAutoRaidBattleAsync()
 			a_quest_id: quest.a_quest_id,
 			quest_type: quest.type,
 		});
+
+		return false;
 	}
-	else
+
+	return true;
+}
+async function scriptHandleRequestBPAsync(battle_bp, qp)
+{
+	if (!qp) qp = await getQuestPointsAsync();
+	if (qp.bp < battle_bp)
 	{
-		let qp;
-		if (optionEndWithZeroBPRemaining)
+		let isBPRestored = await useRestoreBPAsync(battle_bp - qp.bp);
+		if (!isBPRestored)
 		{
-			qp = await getQuestPointsAsync();
-			if (qp.bp == 0)
-			{
-				console.log("Zero BP remaining. Ending...");
-				return;
-			}
-		}
-
-		isBattleJoined = false;
-		scriptInterrupt = false;
-		while (!isBattleJoined && !scriptInterrupt)
-		{
-			let requests = await getRaidRequestListAsync();
-			requests = requests.filter(a => !a.is_joined && !a.is_own_raid);
-			for (let filter of optionRaidRequestFilters) {
-				requests = requests.filter(filter);
-			}
-			for (let sort of optionRaidRequestSorts) {
-				requests.sort(sort);
-			}
-
-			if (requests.length > 0)
-			{
-				console.log("Found raid", requests[0].enemy_name, "lv.", requests[0].enemy_level, "requested by", requests[0].help_requested_player_name);
-				console.log("Joining raid in", 10, "seconds. Leave to cancel.");
-				let waitBeforeJoiningRaidbattle = delay(10000);
-
-				if (!qp) qp = await getQuestPointsAsync();
-				if (requests[0].battle_bp > qp.bp)
-				{
-					let isBpRestored = await useRestoreBPAsync(requests[0].battle_bp - qp.bp);
-					if (!isBpRestored)
-					{
-						console.log("Not enough energy leafs or seeds. Ending script.");
-						return;
-					}
-				}
-
-				let supporters = await getSupporterListAsync(requests[0].recommended_element_type);
-				for (let filter of optionSupporterFilters) {
-					supporters = supporters.filter(filter);
-				}
-				for (let sort of optionSupporterSorts) {
-					supporters.sort(sort);
-				}
-
-				let profile = await getMyProfileAsync();
-
-				if (scriptInterrupt) return;
-				await waitBeforeJoiningRaidbattle;
-				if (scriptInterrupt) return;
-				isBattleJoined = await joinRaidBattleAsync(
-					requests[0].a_battle_id,
-					requests[0].a_quest_id,
-					requests[0].quest_type,
-					profile.a_player_id,
-					profile.selected_party.a_party_id,
-					supporters[0].summon_info.a_summon_id
-				);
-			}
-			else
-			{
-				console.log("Did not find a suitable raid request. Waiting", optionWaitBetweenRaidRequestChecks / 1000, "seconds...");
-				await delay(optionWaitBetweenRaidRequestChecks);
-			}
+			console.log("Not enough energy leafs or seeds. Ending script.");
+			return false;
 		}
 	}
+	return true;
 }
 
 async function getMyProfileAsync()
@@ -316,10 +334,10 @@ async function useRestoreAPAsync(needed_ap, max_ap)
 	}
 	return false;
 }
-async function useRestoreBPAsync(needed_ap)
+async function useRestoreBPAsync(needed_bp)
 {
 	let result = await khItemsApi.getCure(1, 10);
-	if (needed_ap == 5)
+	if (needed_bp == 5)
 	{
 		let energyLeaf = result.body.data.find(a => a.name == "Energy Leaf");
 		if (energyLeaf)
@@ -329,14 +347,14 @@ async function useRestoreBPAsync(needed_ap)
 		}
 	}
 	let energySeed = result.body.data.find(a => a.name == "Energy Seed");
-	if (energySeed && energySeed.num >= needed_ap)
+	if (energySeed && energySeed.num >= needed_bp)
 	{
-		await khItemsApi.useItem(energySeed.a_item_id, needed_ap);
+		await khItemsApi.useItem(energySeed.a_item_id, needed_bp);
 		return true;
 	}
 	return false;
 }
-async function startQuestAsync(quest_id, quest_type, party_id, summon_id)
+async function startQuestBattleAsync(quest_id, quest_type, party_id, summon_id)
 {
 	let result = await khQuestsApi.startQuest(quest_id, quest_type, party_id, summon_id);
 	if (result.body.cannot_progress_info)
