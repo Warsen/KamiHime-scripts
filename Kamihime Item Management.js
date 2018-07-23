@@ -63,7 +63,7 @@ async function khInjectionAsync()
 			scriptInterrupt = !scriptInterrupt;
 			if (!scriptInterrupt)
 			{
-				setTimeout(quickDrawGachaAsync, 3000);
+				setTimeout(scriptQuickDrawGachaAsync, 3000);
 			}
 		}
 		else
@@ -80,19 +80,19 @@ async function khInjectionAsync()
 	if (location.hash.startsWith("#!enh_evo/arousal_001"))
 	{
 		scriptInterrupt = false;
-		setTimeout(doItemManagementTasksAsync, 0);
+		setTimeout(scriptDoItemManagementTasksAsync, 0);
 	}
 }
 
-async function doItemManagementTasksAsync()
+async function scriptDoItemManagementTasksAsync()
 {
-	let result = await optionTasksAsync();
+	let result = await scriptItemManagementTasksAsync();
 	if (result) {
 		console.log("Completed all tasks. Ending...");
 	}
 }
 
-async function itemManagementTasksAsync()
+async function scriptItemManagementTasksAsync()
 {
 	let scripts = [
 		scriptLevelWeaponsAsync,
@@ -111,7 +111,7 @@ async function itemManagementTasksAsync()
 	return true;
 }
 
-async function quickDrawGachaAsync()
+async function scriptQuickDrawGachaAsync()
 {
 	let gachaInfo = await getGachaInfoAsync();
 
@@ -119,7 +119,7 @@ async function quickDrawGachaAsync()
 	{
 		if (gachaInfo.is_max_weapon_or_summon)
 		{
-			let result = await optionTasksAsync();
+			let result = await scriptItemManagementTasksAsync();
 			if (result)
 			{
 				gachaInfo = await getGachaInfoAsync();
@@ -134,7 +134,7 @@ async function quickDrawGachaAsync()
 		{
 			 if (gachaInfo.groups[1].gacha_count != 10)
 			 {
-				let result = await optionTasksAsync();
+				let result = await scriptItemManagementTasksAsync();
 				if (result)
 				{
 					gachaInfo = await getGachaInfoAsync();
@@ -157,7 +157,7 @@ async function quickDrawGachaAsync()
 		}
 		else
 		{
-			await optionTasksAsync();
+			await scriptItemManagementTasksAsync();
 			console.log("All gem gacha attempts are used. Ending...");
 			return;
 		}
@@ -176,11 +176,11 @@ async function scriptLevelWeaponsAsync()
 
 	for (let weapon of cacheWeaponsList)
 	{
-		if (weapon.rare == "SSR" && weapon.level > 1 && weapon.level < weapon.max_level)
+		if (weapon.rare == "SSR" && weapon.level < weapon.max_level && weapon.level > 1)
 		{
 			ssrWeapons.push(weapon);
 		}
-		else if (weapon.rare == "SR" && weapon.level > 17 && weapon.level < weapon.max_level && (weapon.is_equipped || weapon.is_locked))
+		else if (weapon.rare == "SR" && weapon.level < weapon.max_level && (weapon.is_equipped || weapon.is_locked))
 		{
 			srWeapons.push(weapon);
 		}
