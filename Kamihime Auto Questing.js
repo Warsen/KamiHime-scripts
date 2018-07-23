@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kamihime Auto Questing
 // @namespace    https://github.com/Warsen/KamiHime-scripts
-// @version      0.2
+// @version      0.3
 // @description  Automatically starts quests for you. See options for details.
 // @author       Warsen
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi_acce_detail/app.html*
@@ -18,7 +18,7 @@
 // attempting to start its own quests from filters.
 var optionSameQuestAfterQuest = true;
 
-// Sets if the raid event list will be checked instead of special quests.
+// Sets if the raid event quest list will be checked instead of special quests.
 var optionQuestIsRaidEventQuest = false;
 
 // Filter functions to be used in filtering quests.
@@ -91,7 +91,7 @@ async function khInjectionAsync()
 	}
 
 	khRouterParams = cc.director._runningScene.routerParams;
-	if (khRouterParams.quest_type == "daily" || khRouterParams.quest_type == "guerrilla" || khRouterParams.quest_type == "accessory" || khRouterParams.is_own_raid)
+	if (khRouterParams.hasOwnProperty("quest_type") && (khRouterParams.quest_type == "daily" || khRouterParams.quest_type == "guerrilla" || khRouterParams.quest_type == "accessory" || khRouterParams.hasOwnProperty("is_own_raid") && khRouterParams.is_own_raid))
 	{
 		console.log("Auto Questing");
 		if (!optionSameQuestAfterQuest && location.hash.startsWith("#!quest/q_004")) // SP Quests
@@ -140,13 +140,13 @@ async function scriptAutoStartQuestAsync()
 			let eventBanner = banners.find(a => a.event_type == "raid_event");
 			if (eventBanner)
 			{
-				quests = await getEventRaidQuestListAsync(eventBanner.event_id);
+				quests = await getEventQuestListAsync(eventBanner.event_id);
 				quests = quests.filter(a => !a.required_item.hasOwnProperty("possession_amount") || a.required_item.possession_amount >= a.required_item.amount);
 			}
 		}
 		if (!quests)
 		{
-			quests = await getSPQuestListAsync();
+			quests = await getSpecialQuestListAsync();
 			quests = quests.filter(a => !a.limit_info.hasOwnProperty("remaining_challenge_count") || a.limit_info.remaining_challenge_count > 0);
 			quests = quests.filter(a => !a.required_item.hasOwnProperty("possession_amount") || a.required_item.possession_amount >= a.required_item.amount);
 		}
@@ -160,18 +160,19 @@ async function scriptAutoStartQuestAsync()
 		if (quests.length > 0)
 		{
 			console.log("Found quest", quests[0].title, quests[0].quest_ap, "AP");
+			
+			let profile = await getMyProfileAsync();
+			let supporters = await getSupporterListAsync(quests[0].episodes[0].recommended_element_type);
+			for (let filter of optionSupporterFilters) {
+				supporters = supporters.filter(filter);
+			}
+			for (let sort of optionSupporterSorts) {
+				supporters.sort(sort);
+			}
+
 			let isQuestAPHandled = await scriptHandleQuestAPAsync(quests[0].quest_ap);
 			if (isQuestAPHandled)
 			{
-				let profile = await getMyProfileAsync();
-				let supporters = await getSupporterListAsync(quests[0].episodes[0].recommended_element_type);
-				for (let filter of optionSupporterFilters) {
-					supporters = supporters.filter(filter);
-				}
-				for (let sort of optionSupporterSorts) {
-					supporters.sort(sort);
-				}
-
 				await startQuestBattleAsync(
 					quests[0].a_quest_id,
 					quests[0].type,
@@ -196,7 +197,7 @@ async function scriptAutoStartSameQuestAsync()
 		let quest;
 		if (khRouterParams.quest_type == "daily" || khRouterParams.quest_type == "guerrilla" || khRouterParams.quest_type == "accessory")
 		{
-			let quests = await getSPQuestListAsync();
+			let quests = await getSpecialQuestListAsync();
 			quests = quests.filter(a => !a.limit_info.hasOwnProperty("remaining_challenge_count") || a.limit_info.remaining_challenge_count > 0);
 			quests = quests.filter(a => !a.required_item.hasOwnProperty("possession_amount") || a.required_item.possession_amount >= a.required_item.amount);
 			quest = quests.find(a => a.a_quest_id == khRouterParams.a_quest_id);
@@ -210,7 +211,7 @@ async function scriptAutoStartSameQuestAsync()
 		}
 		else if (khRouterParams.quest_type == "event_raid")
 		{
-			let quests = await getEventRaidQuestListAsync(khRouterParams.ra_001.event_id);
+			let quests = await getEventQuestListAsync(khRouterParams.ra_001.event_id);
 			quests = quests.filter(a => !a.required_item.hasOwnProperty("possession_amount") || a.required_item.possession_amount >= a.required_item.amount);
 			quest = quests.find(a => a.a_quest_id == khRouterParams.a_quest_id);
 		}
@@ -218,18 +219,19 @@ async function scriptAutoStartSameQuestAsync()
 		if (quest)
 		{
 			console.log("Found same quest", quest.title, quest.quest_ap, "AP");
+			
+			let profile = await getMyProfileAsync();
+			let supporters = await getSupporterListAsync(quest.episodes[0].recommended_element_type);
+			for (let filter of optionSupporterFilters) {
+				supporters = supporters.filter(filter);
+			}
+			for (let sort of optionSupporterSorts) {
+				supporters.sort(sort);
+			}
+
 			let isQuestAPHandled = await scriptHandleQuestAPAsync(quest.quest_ap);
 			if (isQuestAPHandled)
 			{
-				let profile = await getMyProfileAsync();
-				let supporters = await getSupporterListAsync(quest.episodes[0].recommended_element_type);
-				for (let filter of optionSupporterFilters) {
-					supporters = supporters.filter(filter);
-				}
-				for (let sort of optionSupporterSorts) {
-					supporters.sort(sort);
-				}
-
 				await startQuestBattleAsync(
 					quest.a_quest_id,
 					quest.type,
@@ -335,11 +337,6 @@ async function getQuestBannersAsync()
 	let result = await khBannersApi.getQuestBanners();
 	return result.body.data;
 }
-async function getSPQuestListAsync()
-{
-	let result = await khQuestsApi.getListSpecialQuest();
-	return result.body.data;
-}
 async function getRaidQuestListAsync()
 {
 	let result = await khQuestsApi.getListRaid();
@@ -349,7 +346,12 @@ async function getRaidQuestListAsync()
 	}
 	return list;
 }
-async function getEventRaidQuestListAsync(event_id)
+async function getSpecialQuestListAsync()
+{
+	let result = await khQuestsApi.getListSpecialQuest();
+	return result.body.data;
+}
+async function getEventQuestListAsync(event_id)
 {
 	let result = await khQuestsApi.getListEventQuest(event_id);
 	return result.body.data;
@@ -357,6 +359,11 @@ async function getEventRaidQuestListAsync(event_id)
 async function getRaidRequestListAsync()
 {
 	let result = await khBattlesApi.getRaidRequestList();
+	return result.body.data;
+}
+async function getUnionEventDemonBattleListAsync(event_id, difficulty)
+{
+	let result = await khBattlesApi.getUnionRaidRequestList(event_id, difficulty);
 	return result.body.data;
 }
 async function getPendingResultListAsync()

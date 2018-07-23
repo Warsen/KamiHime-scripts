@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kamihime Auto Raiding
 // @namespace    https://github.com/Warsen/KamiHime-scripts
-// @version      0.6
+// @version      0.7
 // @description  Automatically joins raid battles for you. See options for details.
 // @author       Warsen
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi_acce_detail/app.html*
@@ -15,8 +15,16 @@
 // screens or while waiting to join a raid battle.
 // NOTE: Do to a bug, it may not work the first time you navigate.
 
-// Ends the script when you have 0 BP remaining.
-var optionEndWithZeroBPRemaining = false;
+// Sets whether the script will wait for BP to regenerate.
+// If you set it to false, the script will not wait to regenerate BP and
+// will continuously use energy seeds to do raids.
+var optionWaitForBPRegeneration = true;
+
+// Sets the amount of BP the script will wait until you have before checking
+// for raids. You should set it to the amount of BP the type of raid you want
+// will require, but leaving it lower can make the script use a difference
+// amount of energy seeds to do raid requests.
+var optionWaitForBPRegenerationAmount = 2;
 
 // Filter functions to be used in filtering raid requests.
 // Ignores raid requests that do not meet the following conditions.
@@ -47,6 +55,13 @@ optionSupporterSorts.push((a, b) => b.is_friend - a.is_friend);
 // Milliseconds to wait at the item acquisition screen.
 // If you want to exit automatic navigation, this gives you extra time to do it.
 var optionAdditionalWaitAtAcquisitions = 5000;
+
+// Milliseconds to wait before joining a raid battle.
+// If someone makes a help request just moments before you check the raid
+// requests list, the script could join their battle so quickly that the
+// person sharing the raid would be suspicious. That's why you should wait
+// at least 10 seconds after checking the raids list before joining one.
+var optionWaitBeforeJoiningRaidBattle = 10000;
 
 // Milliseconds to wait between checks for raid requests.
 // The game doesn't normally allow you to refresh when checking for raid requests
@@ -135,15 +150,12 @@ async function scriptAutoRaidBattleAsync()
 	let isQuestInfoHandled = await scriptHandleQuestInfoAsync();
 	if (isQuestInfoHandled)
 	{
-		let qp;
-		if (optionEndWithZeroBPRemaining)
+		let qp = await getQuestPointsAsync();
+		while (location.hash.startsWith("#!quest/q_006") && optionWaitForBPRegeneration && qp.bp < optionWaitForBPRegenerationAmount)
 		{
+			console.log("Waiting", 5, "minutes for BP to be restored... AP:", qp.ap, "BP:", qp.bp);
+			await delay(300000);
 			qp = await getQuestPointsAsync();
-			if (qp.bp == 0)
-			{
-				console.log("Zero BP remaining. Ending...");
-				return;
-			}
 		}
 
 		while (location.hash.startsWith("#!quest/q_006"))
@@ -160,24 +172,24 @@ async function scriptAutoRaidBattleAsync()
 			if (requests.length > 0)
 			{
 				console.log("Found raid", requests[0].enemy_name, "lv.", requests[0].enemy_level, "requested by", requests[0].help_requested_player_name);
-				let isRequestBPHandled = await scriptHandleRequestBPAsync(requests[0].battle_bp);
+				console.log("Joining raid in", optionWaitBeforeJoiningRaidBattle / 1000, "seconds... Leave to cancel.");
+				let taskWaitBeforeJoiningRaidBattle = delay(optionWaitBeforeJoiningRaidBattle);
+
+				let profile = await getMyProfileAsync();
+				let supporters = await getSupporterListAsync(requests[0].recommended_element_type);
+				for (let filter of optionSupporterFilters) {
+					supporters = supporters.filter(filter);
+				}
+				for (let sort of optionSupporterSorts) {
+					supporters.sort(sort);
+				}
+
+				await taskWaitBeforeJoiningRaidBattle;
+				if (!location.hash.startsWith("#!quest/q_006")) return;
+
+				let isRequestBPHandled = await scriptHandleRequestBPAsync(requests[0].battle_bp, qp);
 				if (isRequestBPHandled)
 				{
-					console.log("Joining raid in", 10, "seconds. Leave to cancel.");
-					let waitBeforeJoiningRaidbattle = delay(10000);
-
-					let profile = await getMyProfileAsync();
-					let supporters = await getSupporterListAsync(requests[0].recommended_element_type);
-					for (let filter of optionSupporterFilters) {
-						supporters = supporters.filter(filter);
-					}
-					for (let sort of optionSupporterSorts) {
-						supporters.sort(sort);
-					}
-
-					await waitBeforeJoiningRaidbattle;
-					if (!location.hash.startsWith("#!quest/q_006")) return;
-
 					await joinRaidBattleAsync(
 						requests[0].a_battle_id,
 						requests[0].a_quest_id,
@@ -287,12 +299,21 @@ async function getQuestBannersAsync()
 	let result = await khBannersApi.getQuestBanners();
 	return result.body.data;
 }
+async function getRaidQuestListAsync()
+{
+	let result = await khQuestsApi.getListRaid();
+	let list = [];
+	for (let body of result.body.raid_quest_lists) {
+		list = list.concat(body.data);
+	}
+	return list;
+}
 async function getSpecialQuestListAsync()
 {
 	let result = await khQuestsApi.getListSpecialQuest();
 	return result.body.data;
 }
-async function getRaidEventQuestListAsync(event_id)
+async function getEventQuestListAsync(event_id)
 {
 	let result = await khQuestsApi.getListEventQuest(event_id);
 	return result.body.data;
@@ -300,6 +321,11 @@ async function getRaidEventQuestListAsync(event_id)
 async function getRaidRequestListAsync()
 {
 	let result = await khBattlesApi.getRaidRequestList();
+	return result.body.data;
+}
+async function getUnionEventDemonBattleListAsync(event_id, difficulty)
+{
+	let result = await khBattlesApi.getUnionRaidRequestList(event_id, difficulty);
 	return result.body.data;
 }
 async function getPendingResultListAsync()
