@@ -1,16 +1,17 @@
 // ==UserScript==
 // @name         Kamihime Item Management
 // @namespace    https://github.com/Warsen/KamiHime-scripts
-// @version      0.7
+// @version      0.8
 // @description  Manages your weapons and eidolons for you.
 // @author       Warsen
-// @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
-// @include      https://cf.g.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi/app.html*
+// @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi_acce_detail/app.html*
+// @include      https://cf.g.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi_acce_detail/app.html*
 // @grant        none
 // @run-at       document-end
 // ==/UserScript==
 
-// Item management runs when you go to Enhance from My Page.
+// Item management runs when you go to Inventory and use the Awaken button
+// at the Kamihime tab.
 // Background quick drawing of gachapon starts when you go to Gem Gacha.
 // Item management runs every time background quick drawing of gachapon
 // gets you full inventory.
@@ -26,24 +27,24 @@ var optionTaskList = [2, 0, 1, 4];
 var optionLevelSRWeapons = true;
 var optionLevelSREidolons = true;
 var optionSkillSRWeapons = false;
-var optionSellCherubWeapons = false;
-var optionSellREidolons = false;
+var optionSellRExperienceWeapons = false;
+var optionSellRExperienceEidolons = false;
 
 let khWeaponsApi;
 let khSummonsApi;
 let khGachaApi;
 let khRouter;
-let khNavigate;
 let scriptInterrupt;
 let cacheWeaponsList;
 let cacheEidolonsList;
 
 async function khInjectionAsync()
 {
-	// Wait for the game to finish loading.
+	// Wait for the game to load.
 	while (!has(cc, "director", "_runningScene", "_seekWidgetByName") || !has(kh, "createInstance")) {
-		await delay(1000);
+		await delay(500);
 	}
+	kh.env.sendErrorLog = false;
 
 	// Create instances of the various APIs.
 	khWeaponsApi = kh.createInstance("apiAWeapons");
@@ -60,22 +61,30 @@ async function khInjectionAsync()
 		if (destination == "gacha/ga_004")
 		{
 			scriptInterrupt = !scriptInterrupt;
-			setTimeout(quickDrawGachaAsync, 3000);
-		}
-		else if (destination == "enh_evo/enh_001")
-		{
-			scriptInterrupt = !scriptInterrupt;
-			setTimeout(doOptionTasksAsync, 3000);
+			if (!scriptInterrupt)
+			{
+				setTimeout(quickDrawGachaAsync, 3000);
+			}
 		}
 		else
 		{
 			scriptInterrupt = true;
 		}
 	};
-	khNavigate = _navigate.bind(khRouter);
+
+	// Wait for the game to load router parameters.
+	while (!has(cc, "director", "_runningScene", "routerParams")) {
+		await delay(100);
+	}
+
+	if (location.hash.startsWith("#!enh_evo/arousal_001"))
+	{
+		scriptInterrupt = false;
+		setTimeout(doItemManagementTasksAsync, 0);
+	}
 }
 
-async function doOptionTasksAsync()
+async function doItemManagementTasksAsync()
 {
 	let result = await optionTasksAsync();
 	if (result) {
@@ -83,7 +92,7 @@ async function doOptionTasksAsync()
 	}
 }
 
-async function optionTasksAsync()
+async function itemManagementTasksAsync()
 {
 	let scripts = [
 		scriptLevelWeaponsAsync,
@@ -776,7 +785,7 @@ async function scriptSellItemsAsync()
 	}
 
 	let weapons = cacheWeaponsList.filter(a => a.rare == "N" && a.bonus == 0 && !a.is_equipped && !a.is_locked && a.level == 1);
-	if (optionSellCherubWeapons)
+	if (optionSellRExperienceWeapons)
 	{
 		weapons = weapons.concat(cacheWeaponsList.filter(a => a.rare == "R" && a.bonus == 0 && !a.is_equipped && !a.is_locked && a.level == 1 && a.attack == 8));
 	}
@@ -790,9 +799,9 @@ async function scriptSellItemsAsync()
 	}
 
 	let eidolons = cacheEidolonsList.filter(a => a.rare == "N" && a.bonus == 0 && !a.is_equipped && !a.is_locked && a.level == 1);
-	if (optionSellREidolons)
+	if (optionSellRExperienceEidolons)
 	{
-		eidolons = eidolons.concat(cacheEidolonsList.filter(a => a.rare == "R" && a.bonus == 0 && !a.is_equipped && !a.is_locked && a.level == 1 && a.attack > 6));
+		eidolons = eidolons.concat(cacheEidolonsList.filter(a => a.rare == "R" && a.bonus == 0 && !a.is_equipped && !a.is_locked && a.level == 1));
 	}
 	while (!scriptInterrupt && eidolons.length > 0)
 	{
