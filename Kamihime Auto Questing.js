@@ -91,7 +91,10 @@ async function khInjectionAsync()
 	}
 
 	khRouterParams = cc.director._runningScene.routerParams;
-	if (khRouterParams.hasOwnProperty("quest_type") && (khRouterParams.quest_type == "daily" || khRouterParams.quest_type == "guerrilla" || khRouterParams.quest_type == "accessory" || khRouterParams.hasOwnProperty("is_own_raid") && khRouterParams.is_own_raid))
+	if (khRouterParams.hasOwnProperty("quest_type")
+		&& (khRouterParams.quest_type == "daily" || khRouterParams.quest_type == "guerrilla"
+		|| khRouterParams.quest_type == "accessory" || khRouterParams.quest_type == "event"
+		|| khRouterParams.hasOwnProperty("is_own_raid") && khRouterParams.is_own_raid))
 	{
 		console.log("Auto Questing");
 		if (!optionSameQuestAfterQuest && location.hash.startsWith("#!quest/q_004")) // SP Quests
@@ -195,7 +198,8 @@ async function scriptAutoStartSameQuestAsync()
 	if (isQuestInfoHandled)
 	{
 		let quest;
-		if (khRouterParams.quest_type == "daily" || khRouterParams.quest_type == "guerrilla" || khRouterParams.quest_type == "accessory")
+		if (khRouterParams.quest_type == "daily" || khRouterParams.quest_type == "guerrilla"
+			|| khRouterParams.quest_type == "accessory" || khRouterParams.quest_type == "event")
 		{
 			let quests = await getSpecialQuestListAsync();
 			quests = quests.filter(a => !a.limit_info.hasOwnProperty("remaining_challenge_count") || a.limit_info.remaining_challenge_count > 0);
