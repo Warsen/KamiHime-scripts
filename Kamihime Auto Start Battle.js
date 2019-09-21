@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kamihime Auto Start Battle
 // @namespace    https://github.com/Warsen/KamiHime-scripts
-// @version      0.1
+// @version      0.2
 // @description  Automatically starts your battle with Auto Ability On.
 // @author       Warsen
 // @include      https://cf.g.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/battle/app.html*
@@ -33,6 +33,23 @@ async function khLoadingAsync()
 		|| khBattleWorld.battleUI.CenterPanel._visibleButton == 3)
 	{
 		await delay(500);
+	}
+
+	// If this is a raid battle, There will be a help request popup.
+	let helpRequestPopup = khRunningScene._children.find(a => a.hasOwnProperty("_loggingInfo") && a._loggingInfo.resourceName == "battle_ui_rescueconfirm_popup");
+	if (helpRequestPopup)
+	{
+		if (khBattleWorld.raidInfo._raidInfo.participants.current <= 3 && khBattleWorld.enemyList[0]._avatarData.level >= 50)
+		{
+			khBattleWorld.backendAPI.postHelpRequest(
+				helpRequestPopup.buttonStatus.toAll.selected && helpRequestPopup.buttonStatus.toAll.button.isTouchEnabled(),
+				helpRequestPopup.buttonStatus.toFriends.selected && helpRequestPopup.buttonStatus.toFriends.button.isTouchEnabled(),
+				helpRequestPopup.buttonStatus.toUnion.selected && helpRequestPopup.buttonStatus.toUnion.button.isTouchEnabled(),
+				khRunningScene._questInfo._questType
+			);
+			console.log("Help Request Sent");
+		}
+		helpRequestPopup.dismiss();
 	}
 
 	switch (khBattleWorld.battleUI.CenterPanel._visibleButton)

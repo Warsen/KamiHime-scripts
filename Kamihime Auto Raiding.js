@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kamihime Auto Raiding
 // @namespace    https://github.com/Warsen/KamiHime-scripts
-// @version      0.7
+// @version      0.8
 // @description  Automatically joins raid battles for you. See options for details.
 // @author       Warsen
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi_acce_detail/app.html*
@@ -13,7 +13,6 @@
 // Auto raiding runs when you go to Check Battles/Raid Boss Available
 // or shortly after any battle. You can exit the loop at the results
 // screens or while waiting to join a raid battle.
-// NOTE: Do to a bug, it may not work the first time you navigate.
 
 // Sets whether the script will wait for BP to regenerate.
 // If you set it to false, the script will not wait to regenerate BP and
@@ -24,16 +23,16 @@ var optionWaitForBPRegeneration = true;
 // for raids. You should set it to the amount of BP the type of raid you want
 // will require, but leaving it lower can make the script use a difference
 // amount of energy seeds to do raid requests.
-var optionWaitForBPRegenerationAmount = 2;
+var optionWaitForBPRegenerationAmount = 3;
 
 // Filter functions to be used in filtering raid requests.
 // Ignores raid requests that do not meet the following conditions.
 var optionRaidRequestFilters = [];
 optionRaidRequestFilters.push(a => a.enemy_hp / a.enemy_max >= 0.20);
-optionRaidRequestFilters.push(a => (a.enemy_level == 50 && a.participants <= 8) || (a.enemy_level == 70 && a.participants <= 12));
+//optionRaidRequestFilters.push(a => (a.enemy_level == 50 && a.participants <= 8) || (a.enemy_level == 70 && a.participants <= 12));
 //optionRaidRequestFilters.push(a => a.enemy_level == 50 && a.participants <= 8);
-//optionRaidRequestFilters.push(a => a.enemy_level == 70 && a.participants <= 12);
-optionRaidRequestFilters.push(a => !a.enemy_name.startsWith("Prison"));
+optionRaidRequestFilters.push(a => a.enemy_level == 70 && a.participants <= 12);
+//optionRaidRequestFilters.push(a => !a.enemy_name.startsWith("Prison"));
 
 // Sort functions to be used in sorting raid requests.
 // The script always picks the first raid after filtering, so you want your
@@ -52,6 +51,17 @@ var optionSupporterSorts = [];
 optionSupporterSorts.push((a, b) => b.summon_info.level - a.summon_info.level);
 optionSupporterSorts.push((a, b) => b.is_friend - a.is_friend);
 
+// Set script to override the element of your party.
+var optionOverrideElement = false;
+var optionOverrideElementReplacement = 5;
+// The chosen element will always be used against phantom/unknown element.
+// 0 - Fire
+// 1 - Water
+// 2 - Wind
+// 3 - Thunder
+// 4 - Dark
+// 5 - Light
+
 // Milliseconds to wait at the item acquisition screen.
 // If you want to exit automatic navigation, this gives you extra time to do it.
 var optionAdditionalWaitAtAcquisitions = 5000;
@@ -69,6 +79,7 @@ var optionWaitBeforeJoiningRaidBattle = 10000;
 var optionWaitBetweenRaidRequestChecks = 30000;
 
 let khPlayersApi;
+let khPartiesApi;
 let khBannersApi;
 let khQuestInfoApi;
 let khQuestsApi;
@@ -81,13 +92,14 @@ let khRouterParams;
 async function khInjectionAsync()
 {
 	// Wait for the game to load.
-	while (!has(cc, "director", "_runningScene", "_seekWidgetByName") || !has(kh, "createInstance")) {
+	while (!has(cc, "director", "_runningScene", "seekWidgetByName") || !has(kh, "createInstance")) {
 		await delay(500);
 	}
 	kh.env.sendErrorLog = false;
 
 	// Create instances of the various APIs.
 	khPlayersApi = kh.createInstance("apiAPlayers");
+	khPartiesApi = kh.createInstance("apiAParties");
 	khBannersApi = kh.createInstance("apiABanners");
 	khQuestInfoApi = kh.createInstance("apiAQuestInfo");
 	khQuestsApi = kh.createInstance("apiAQuests");
@@ -100,7 +112,6 @@ async function khInjectionAsync()
 	let _navigate = kh.Router.prototype.navigate;
 	kh.Router.prototype.navigate = function(destination) {
 		_navigate.apply(this, arguments);
-//		console.log(destination);
 
 		if (destination == "quest/q_006") {
 			setTimeout(scriptAutoRaidBattleAsync, 3000);
@@ -176,12 +187,17 @@ async function scriptAutoRaidBattleAsync()
 				let taskWaitBeforeJoiningRaidBattle = delay(optionWaitBeforeJoiningRaidBattle);
 
 				let profile = await getMyProfileAsync();
-				let supporters = await getSupporterListAsync(requests[0].recommended_element_type);
-				for (let filter of optionSupporterFilters) {
-					supporters = supporters.filter(filter);
+				let partydeck;
+				let supporters;
+				if (requests[0].recommended_element_type > 5 || optionOverrideElement)
+				{
+					partydeck = await getPartyDeckForElementAsync(optionOverrideElementReplacement);
+					supporters = await getSupporterListAsync(optionOverrideElementReplacement);
 				}
-				for (let sort of optionSupporterSorts) {
-					supporters.sort(sort);
+				else
+				{
+					partydeck = await getPartyDeckForElementAsync(requests[0].recommended_element_type);
+					supporters = await getSupporterListAsync(requests[0].recommended_element_type);
 				}
 
 				await taskWaitBeforeJoiningRaidBattle;
@@ -195,7 +211,7 @@ async function scriptAutoRaidBattleAsync()
 						requests[0].a_quest_id,
 						requests[0].quest_type,
 						profile.a_player_id,
-						profile.selected_party.a_party_id,
+						partydeck.a_party_id,
 						supporters[0].summon_info.a_summon_id
 					);
 				}
@@ -274,15 +290,30 @@ async function getMyProfileAsync()
 	let result = await khPlayersApi.getMeNumeric();
 	return result.body;
 }
-async function getQuestInfoAsync()
-{
-	let result = await khQuestInfoApi.get();
-	return result.body;
-}
 async function getQuestPointsAsync()
 {
 	let result = await khPlayersApi.getQuestPoints();
 	return result.body.quest_points;
+}
+async function getPartyDeckListAsync()
+{
+	let result = await khPartiesApi.getDecks();
+	return result.body.decks;
+}
+async function getPartyDeckForElementAsync(element)
+{
+	let result = await khPartiesApi.getDecks();
+	let list = result.body.decks.filter(a => !a.in_use);
+	let deck = list.find(a => a.job.element_type == element);
+	if (deck) {
+		return deck;
+	}
+	return list[0];
+}
+async function getQuestInfoAsync()
+{
+	let result = await khQuestInfoApi.get();
+	return result.body;
 }
 async function getQuestStateAsync(quest_id, quest_type)
 {
@@ -340,6 +371,9 @@ async function getBattleResultAsync(battle_id, quest_type)
 }
 async function getSupporterListAsync(element)
 {
+	if (element > 5) {
+		element = 0;
+	}
 	let result = await khSummonsApi.getSupporters(element);
 	return result.body.data;
 }

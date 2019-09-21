@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kamihime Auto Questing
 // @namespace    https://github.com/Warsen/KamiHime-scripts
-// @version      0.3
+// @version      0.5
 // @description  Automatically starts quests for you. See options for details.
 // @author       Warsen
 // @include      https://cf.r.kamihimeproject.dmmgames.com/front/cocos2d-proj/components-pc/mypage_quest_party_guild_enh_evo_gacha_present_shop_epi_acce_detail/app.html*
@@ -10,16 +10,15 @@
 // @run-at       document-end
 // ==/UserScript==
 
-// Auto questing runs when you go to SP Quests or shortly after any battle.
-// You can exit the loop at the results screens.
-// NOTE: Due to a bug, it may not work the first time you navigate.
+// Auto questing runs either when you go to SP Quests or shortly after
+// a battle. You can exit the loop at the results screens.
 
 // Sets the script to repeat the last quest you have done rather than
 // attempting to start its own quests from filters.
 var optionSameQuestAfterQuest = true;
 
 // Sets if the raid event quest list will be checked instead of special quests.
-var optionQuestIsRaidEventQuest = false;
+var optionQuestIsRaidEventOrUnionEventQuest = false;
 
 // Filter functions to be used in filtering quests.
 // Ignores quests that do not meet the following conditions.
@@ -39,11 +38,23 @@ var optionSupporterSorts = [];
 optionSupporterSorts.push((a, b) => b.summon_info.level - a.summon_info.level);
 optionSupporterSorts.push((a, b) => b.is_friend - a.is_friend);
 
+// Set script to override the element of your party.
+var optionOverrideElement = false;
+var optionOverrideElementReplacement = 5;
+// The chosen element will always be used against phantom/unknown element.
+// 0 - Fire
+// 1 - Water
+// 2 - Wind
+// 3 - Thunder
+// 4 - Dark
+// 5 - Light
+
 // Milliseconds to wait at the item acquisition screen.
 // If you want to exit automatic navigation, this gives you extra time to do it.
 var optionAdditionalWaitAtAcquisitions = 5000;
 
 let khPlayersApi;
+let khPartiesApi;
 let khBannersApi;
 let khQuestInfoApi;
 let khQuestsApi;
@@ -56,13 +67,14 @@ let khRouterParams;
 async function khInjectionAsync()
 {
 	// Wait for the game to load.
-	while (!has(cc, "director", "_runningScene", "_seekWidgetByName") || !has(kh, "createInstance")) {
+	while (!has(cc, "director", "_runningScene", "seekWidgetByName") || !has(kh, "createInstance")) {
 		await delay(200);
 	}
 	kh.env.sendErrorLog = false;
 
 	// Create instances of the various APIs.
 	khPlayersApi = kh.createInstance("apiAPlayers");
+	khPartiesApi = kh.createInstance("apiAParties");
 	khBannersApi = kh.createInstance("apiABanners");
 	khQuestInfoApi = kh.createInstance("apiAQuestInfo");
 	khQuestsApi = kh.createInstance("apiAQuests");
@@ -137,7 +149,7 @@ async function scriptAutoStartQuestAsync()
 	if (isQuestInfoHandled)
 	{
 		let quests;
-		if (optionQuestIsRaidEventQuest)
+		if (optionQuestIsRaidEventOrUnionEventQuest)
 		{
 			let banners = await getQuestBannersAsync();
 			let eventBanner = banners.find(a => a.event_type == "raid_event");
@@ -163,9 +175,19 @@ async function scriptAutoStartQuestAsync()
 		if (quests.length > 0)
 		{
 			console.log("Found quest", quests[0].title, quests[0].quest_ap, "AP");
-			
-			let profile = await getMyProfileAsync();
-			let supporters = await getSupporterListAsync(quests[0].episodes[0].recommended_element_type);
+
+			let partydeck;
+			let supporters;
+			if (quests[0].episodes[0].recommended_element_type > 5 || optionOverrideElement)
+			{
+				partydeck = await getPartyDeckForElementAsync(optionOverrideElementReplacement);
+				supporters = await getSupporterListAsync(optionOverrideElementReplacement);
+			}
+			else
+			{
+				partydeck = await getPartyDeckForElementAsync(quests[0].episodes[0].recommended_element_type);
+				supporters = await getSupporterListAsync(quests[0].episodes[0].recommended_element_type);
+			}
 			for (let filter of optionSupporterFilters) {
 				supporters = supporters.filter(filter);
 			}
@@ -177,9 +199,9 @@ async function scriptAutoStartQuestAsync()
 			if (isQuestAPHandled)
 			{
 				await startQuestBattleAsync(
-					quests[0].a_quest_id,
+					quests[0].quest_id,
 					quests[0].type,
-					profile.selected_party.a_party_id,
+					partydeck.a_party_id,
 					supporters[0].summon_info.a_summon_id,
 				);
 			}
@@ -223,9 +245,19 @@ async function scriptAutoStartSameQuestAsync()
 		if (quest)
 		{
 			console.log("Found same quest", quest.title, quest.quest_ap, "AP");
-			
-			let profile = await getMyProfileAsync();
-			let supporters = await getSupporterListAsync(quest.episodes[0].recommended_element_type);
+
+			let partydeck;
+			let supporters;
+			if (quest.episodes[0].recommended_element_type > 5 || optionOverrideElement)
+			{
+				partydeck = await getPartyDeckForElementAsync(optionOverrideElementReplacement);
+				supporters = await getSupporterListAsync(optionOverrideElementReplacement);
+			}
+			else
+			{
+				partydeck = await getPartyDeckForElementAsync(quest.episodes[0].recommended_element_type);
+				supporters = await getSupporterListAsync(quest.episodes[0].recommended_element_type);
+			}
 			for (let filter of optionSupporterFilters) {
 				supporters = supporters.filter(filter);
 			}
@@ -237,9 +269,9 @@ async function scriptAutoStartSameQuestAsync()
 			if (isQuestAPHandled)
 			{
 				await startQuestBattleAsync(
-					quest.a_quest_id,
+					quest.quest_id,
 					quest.type,
-					profile.selected_party.a_party_id,
+					partydeck.a_party_id,
 					supporters[0].summon_info.a_summon_id,
 				);
 			}
@@ -316,15 +348,30 @@ async function getMyProfileAsync()
 	let result = await khPlayersApi.getMeNumeric();
 	return result.body;
 }
-async function getQuestInfoAsync()
-{
-	let result = await khQuestInfoApi.get();
-	return result.body;
-}
 async function getQuestPointsAsync()
 {
 	let result = await khPlayersApi.getQuestPoints();
 	return result.body.quest_points;
+}
+async function getPartyDeckListAsync()
+{
+	let result = await khPartiesApi.getDecks();
+	return result.body.decks;
+}
+async function getPartyDeckForElementAsync(element)
+{
+	let result = await khPartiesApi.getDecks();
+	let list = result.body.decks.filter(a => !a.in_use);
+	let deck = list.find(a => a.job.element_type == element);
+	if (deck) {
+		return deck;
+	}
+	return list[0];
+}
+async function getQuestInfoAsync()
+{
+	let result = await khQuestInfoApi.get();
+	return result.body;
 }
 async function getQuestStateAsync(quest_id, quest_type)
 {
@@ -382,6 +429,9 @@ async function getBattleResultAsync(battle_id, quest_type)
 }
 async function getSupporterListAsync(element)
 {
+	if (element > 5) {
+		element = 0;
+	}
 	let result = await khSummonsApi.getSupporters(element);
 	return result.body.data;
 }
@@ -439,7 +489,7 @@ async function startQuestBattleAsync(quest_id, quest_type, party_id, summon_id)
 	{
 		khRouter.navigate("battle", {
 			a_battle_id: state.next_info.id,
-			a_quest_id: quest_id,
+			a_quest_id: state.a_quest_id,
 			quest_type: quest_type,
 		});
 		return true;
